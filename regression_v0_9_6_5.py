@@ -1,10 +1,12 @@
 """Focused regression for joint WB/chroma smoothing in v0.9.6.5."""
 import numpy as np
 import icehalostack as ihs
+import icehalostack_core.image_ops as image_ops
 
 # These focused numeric tests do not decode files.  Keep them runnable in the
 # lightweight development runtime where optional TIFF/RAW packages are absent.
 ihs._deps=lambda:(np,None,None,None,None,None,None)
+image_ops._deps=ihs._deps
 
 
 def cfg():
