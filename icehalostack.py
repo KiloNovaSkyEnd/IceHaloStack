@@ -8,11 +8,8 @@ from collections import OrderedDict, Counter, deque
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-APP_NAME = 'IceHaloStack'
-VERSION = '0.9.6.7'
-RAW_EXTS = {'.arw','.cr2','.cr3','.nef','.nrw','.raf','.rw2','.orf','.pef','.dng','.srw','.3fr','.erf','.kdc','.mos','.mrw','.raw','.rwl','.sr2'}
-RASTER_EXTS = {'.tif','.tiff','.png','.jpg','.jpeg','.bmp'}
-ALL_EXTS = RAW_EXTS | RASTER_EXTS
+from icehalostack_core.constants import APP_NAME, VERSION, RAW_EXTS, RASTER_EXTS, ALL_EXTS
+from icehalostack_core.dependencies import _deps
 
 # Typography policy: every application-controlled text element uses REGULAR weight.
 # The user can select the UI family from Settings.  No font files are bundled;
@@ -807,26 +804,6 @@ def _mousewheel_steps(event, linux_direction=None):
     # can report smaller values. Keep at least one visible scroll step.
     mag = max(1, abs(delta) // 120)
     return (-3 * mag) if delta > 0 else (3 * mag)
-
-
-def _deps():
-    try:
-        import numpy as np
-        import tifffile
-        from PIL import Image, ImageTk, ImageFilter
-        try:
-            import rawpy
-        except Exception:
-            rawpy = None
-        try:
-            import cv2
-        except Exception:
-            cv2 = None
-        return np, tifffile, Image, ImageTk, ImageFilter, rawpy, cv2
-    except Exception as e:
-        raise RuntimeError('缺少运行依赖。请使用“启动 IceHaloStack.bat”。\n\n' + str(e))
-
-
 
 
 _GIB = 1024 ** 3
