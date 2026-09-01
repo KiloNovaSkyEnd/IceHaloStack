@@ -1,7 +1,15 @@
 """Focused regression for joint WB/chroma smoothing in v0.9.6.5."""
+import sys
+from pathlib import Path
+
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import icehalostack as ihs
-import icehalostack_core.image_ops as image_ops
+import ihs.image_ops as image_ops
 
 # These focused numeric tests do not decode files.  Keep them runnable in the
 # lightweight development runtime where optional TIFF/RAW packages are absent.

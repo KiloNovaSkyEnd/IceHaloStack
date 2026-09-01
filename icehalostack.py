@@ -8,9 +8,9 @@ from collections import OrderedDict, Counter, deque
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-from icehalostack_core.constants import APP_NAME, VERSION, RAW_EXTS, RASTER_EXTS, ALL_EXTS
-from icehalostack_core.dependencies import _deps
-from icehalostack_core.image_ops import (
+from ihs.constants import APP_NAME, VERSION, RAW_EXTS, RASTER_EXTS, ALL_EXTS
+from ihs.dependencies import _deps
+from ihs.image_ops import (
     estimate_asinh_params, auto_stretch_for_display, apply_asinh_stretch,
     _blur, apply_usm, overlay_blend, softlight_blend, highpass_filter,
     apply_highpass, _emboss_components, _photoshop_emboss_filter,

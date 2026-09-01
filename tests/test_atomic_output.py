@@ -1,8 +1,14 @@
 """Regression checks for Windows-safe asynchronous atomic output."""
+import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import icehalostack as ihs
 
 

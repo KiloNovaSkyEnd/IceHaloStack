@@ -1,11 +1,16 @@
 """Focused v0.9.6.4 UI/deflicker/batch-export regression checks."""
 import pathlib
 import shutil
+import sys
 import time
 
 import numpy as np
 import tkinter as tk
 from tkinter import ttk
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import icehalostack as ihs
 

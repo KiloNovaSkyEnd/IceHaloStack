@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
 import time
 import tkinter as tk
 from types import SimpleNamespace
@@ -11,8 +12,11 @@ from tkinter import ttk
 import numpy as np
 
 
-HERE = pathlib.Path(__file__).resolve().parent
-SPEC = importlib.util.spec_from_file_location("icehalostack_0963", HERE / "icehalostack.py")
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+SPEC = importlib.util.spec_from_file_location("icehalostack_0963", ROOT / "icehalostack.py")
 ihs = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(ihs)
@@ -114,7 +118,7 @@ def test_workspace_state_and_progress(reference_image):
 
 if __name__ == "__main__":
     test_tone_math()
-    source = (HERE / "icehalostack.py").read_text(encoding="utf-8")
+    source = (ROOT / "icehalostack.py").read_text(encoding="utf-8")
     for marker in ("'epoch':0,'advancing':False", "widget.bind('<space>',_toggle_play", "transition_progressbar=ttk.Progressbar", "d.after_idle(pump_base_widgets)"):
         assert marker in source, marker
     # Reuse the screenshot supplied with the bug report; no source file is modified.
