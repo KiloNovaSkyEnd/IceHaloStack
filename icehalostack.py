@@ -47,6 +47,17 @@ from ihs.stack_engine import (
 from ihs.output_pipeline import (
     AsyncOutputPipeline, _build_ffmpeg_video_plan, _run_ffmpeg_command,
 )
+from ihs.node_workflow import (
+    NODE_ORDER as _NODE_WORKFLOW_ORDER,
+    default_edges as _node_default_edges,
+    normalize_flow as _normalize_node_flow,
+    node_enabled as _node_flow_enabled,
+    flow_exec_order as _node_flow_exec_order,
+    node_signature as _node_flow_signature,
+    prepare_shared_node_dag as _prepare_node_shared_dag,
+    shared_dag_cache_cap as _node_shared_dag_cache_cap,
+    release_shared_flow_refs as _release_node_shared_flow_refs,
+)
 from ihs.exposure_wb import (
     _EWB_TONE_KEYS, _ewb_default_config, _ewb_resize_float,
     _ewb_analysis_crop, _ewb_measure_proxy, _ewb_median_filter_1d,
@@ -3811,7 +3822,7 @@ class StandaloneHPCurveDialog(tk.Toplevel):
 
 
 class TimelapseNodeWindow(tk.Toplevel):
-    NODE_ORDER=[('stack','Stack\n堆栈'),('stretch','Stretch\n拉伸'),('basic','Base\n基础调色'),('usm','USM\n锐化'),('bgr','BGR\n背景+曲线'),('highpass','High Pass\n高反差保留'),('emboss','Emboss\n浮雕'),('br','BR\n通道混合器'),('output','Output\n输出')]
+    NODE_ORDER=_NODE_WORKFLOW_ORDER
     def __init__(self,app):
         super().__init__(app);self.app=app
         self.title(f'{APP_NAME} · 节点堆栈延时 / Node Stack Timelapse v{VERSION}')
@@ -3928,9 +3939,7 @@ class TimelapseNodeWindow(tk.Toplevel):
             flow['layout'][key]=(float(x), float(start_y+i*gap))
 
     def _default_edges(self,present_nodes=None):
-        present=set(present_nodes or [k for k,_ in self.NODE_ORDER])
-        order=[k for k,_ in self.NODE_ORDER if k in present]
-        return [(order[i],order[i+1]) for i in range(len(order)-1)]
+        return _node_default_edges(present_nodes,self.NODE_ORDER)
 
     def _new_flow(self,name):
         present=[k for k,_ in self.NODE_ORDER]
@@ -3939,40 +3948,7 @@ class TimelapseNodeWindow(tk.Toplevel):
         return flow
 
     def _normalize_flow(self,f):
-        cfg=f.setdefault('cfg',{})
-        for dk,dv in self._default_cfg().items(): cfg.setdefault(dk,copy.deepcopy(dv))
-        if 'base_curves' not in f or not isinstance(f.get('base_curves'),dict): f['base_curves']={k:[(0.0,0.0),(1.0,1.0)] for k in ['RGB','红色','绿色','蓝色','亮度']}
-        if 'delete_sequence_after_video_only' not in f.get('output',{}): f.setdefault('output',{})['delete_sequence_after_video_only']=True
-        if 'bgr' not in cfg: cfg['bgr']=bool(cfg.get('background',False) or cfg.get('curves',False))
-        if 'br' not in cfg: cfg['br']=bool(cfg.get('channel',False))
-        if 'channel' not in cfg: cfg['channel']=cfg.get('br',False)
-        allowed=[k for k,_ in self.NODE_ORDER]
-        allowed_set=set(allowed)
-        present=f.get('present_nodes', allowed[:])
-        if not isinstance(present,list): present=allowed[:]
-        present=[k for k in present if k in allowed_set]
-        if 'stack' not in present: present.insert(0,'stack')
-        if 'output' not in present: present.append('output')
-        dedup=[]
-        for k in allowed:
-            if k in present and k not in dedup: dedup.append(k)
-        f['present_nodes']=dedup
-        if 'layout' not in f or not isinstance(f.get('layout'),dict):
-            f['layout']=self._default_node_layout()
-        else:
-            base=self._default_node_layout()
-            for k,v in base.items(): f['layout'].setdefault(k,v)
-            for old in ('background','curves','channel'):
-                f['layout'].pop(old,None)
-        edges=f.get('edges',[])
-        if not isinstance(edges,list): edges=[]
-        clean=[]
-        for e in edges:
-            try:a,b=e
-            except Exception: continue
-            if a in f['present_nodes'] and b in f['present_nodes'] and a!=b and (a,b) not in clean: clean.append((a,b))
-        f['edges']=clean or self._default_edges(f['present_nodes'])
-        return f
+        return _normalize_node_flow(f,self._default_cfg(),self._default_node_layout(),self.NODE_ORDER)
 
     def _flow(self):
         if not self.flows:return None
@@ -4143,12 +4119,7 @@ class TimelapseNodeWindow(tk.Toplevel):
 
     def _node_enabled(self,flow,key):
         flow=self._normalize_flow(flow)
-        if key not in flow.get('present_nodes',[]): return False
-        cfg=flow['cfg']
-        if key in ('stack','output'): return True
-        if key=='bgr': return bool(cfg.get('bgr',False))
-        if key=='br': return bool(cfg.get('br',False))
-        return bool(cfg.get(key,False))
+        return _node_flow_enabled(flow,key)
 
     def _get_active_edges(self,flow):
         flow=self._normalize_flow(flow)
@@ -4157,41 +4128,7 @@ class TimelapseNodeWindow(tk.Toplevel):
 
     def _flow_exec_order(self,flow):
         flow=self._normalize_flow(flow)
-        nodes=[k for k,_ in self.NODE_ORDER]
-        node_set=set(nodes)
-        edges=[(a,b) for a,b in flow.get('edges',[]) if a in node_set and b in node_set and a!=b]
-        adj={k:[] for k in nodes}; rev={k:[] for k in nodes}
-        for a,b in edges:
-            if b not in adj[a]:
-                adj[a].append(b); rev[b].append(a)
-        # Only execute nodes that lie on at least one Stack -> Output path.
-        reach=set(); stack=['stack']
-        while stack:
-            n=stack.pop()
-            if n in reach: continue
-            reach.add(n); stack.extend(adj.get(n,[]))
-        to_out=set(); stack=['output']
-        while stack:
-            n=stack.pop()
-            if n in to_out: continue
-            to_out.add(n); stack.extend(rev.get(n,[]))
-        relevant=reach & to_out
-        if 'output' not in relevant:
-            return []
-        indeg={k:0 for k in relevant}
-        for a,b in edges:
-            if a in relevant and b in relevant: indeg[b]+=1
-        q=[n for n in nodes if n in relevant and indeg[n]==0]
-        order=[]
-        while q:
-            n=q.pop(0); order.append(n)
-            for m in adj.get(n,[]):
-                if m not in relevant: continue
-                indeg[m]-=1
-                if indeg[m]==0:q.append(m)
-        if len(order)!=len(relevant):
-            raise ValueError('流程图中存在循环，无法执行。')
-        return [n for n in order if n not in ('stack','output')]
+        return _node_flow_exec_order(flow,self.NODE_ORDER)
 
     def _apply_single_flow_node(self,out,node,flow):
         """Apply one node with the exact same math used by final batch output.
@@ -4244,37 +4181,12 @@ class TimelapseNodeWindow(tk.Toplevel):
         return np.clip(out,0,1).astype(np.float32)
 
     def _prepare_shared_node_dag(self,flows):
-        """Compile identical upstream chains into a RAM-only shared DAG.
-
-        v0.9.4.18m also emits per-node reuse audit data.  Signatures contain only
-        parameters that the production node actually reads; unrelated legacy or
-        output settings can no longer split otherwise identical Base/USM prefixes.
-        """
-        plans=[];occ=Counter();naive_nodes=0;param_occ=Counter()
-        for flow0 in flows:
-            flow=self._normalize_flow(flow0);parent=('MASTER',);steps=[]
-            for node in self._flow_exec_order(flow):
-                if not self._node_enabled(flow,node):continue
-                sig=self._preview_node_signature(flow,node);key=(parent,node,sig)
-                steps.append((key,node));occ[key]+=1;param_occ[(node,sig)]+=1;naive_nodes+=1;parent=key
-            plans.append(steps)
-        shared_keys=sum(1 for n in occ.values() if n>1);reusable_uses=sum(max(0,n-1) for n in occ.values())
-        reusable_by_node=Counter();shared_keys_by_node=Counter();parameter_reuse_by_node=Counter()
-        for key,n in occ.items():
-            if n>1:
-                node=key[1];shared_keys_by_node[node]+=1;reusable_by_node[node]+=n-1
-        for (node,_sig),n in param_occ.items():
-            if n>1:parameter_reuse_by_node[node]+=n-1
-        meta={'naive_nodes':naive_nodes,'shared_keys':shared_keys,'reusable_uses':reusable_uses,
-              'reusable_by_node':dict(reusable_by_node),'shared_keys_by_node':dict(shared_keys_by_node),
-              'parameter_reuse_by_node':dict(parameter_reuse_by_node)}
-        return plans,occ,meta
+        normalized=[self._normalize_flow(flow) for flow in flows]
+        return _prepare_node_shared_dag(normalized,self.NODE_ORDER)
 
     @staticmethod
     def _shared_dag_cache_cap(policy):
-        strategy=str((policy or {}).get('strategy','Balanced'))
-        share={'Memory Saver':0.08,'Balanced':0.16,'Maximum Performance':0.22}.get(strategy,0.16)
-        return max(64*_MIB,int((policy or {}).get('limit_bytes',4*_GIB)*share))
+        return _node_shared_dag_cache_cap(policy)
 
     def _execute_shared_flow(self,master,flow,steps,remaining,cache,cache_state,stats,policy):
         """Execute one output flow while reusing identical results from earlier flows.
@@ -4310,54 +4222,10 @@ class TimelapseNodeWindow(tk.Toplevel):
         return np.clip(out,0,1).astype(np.float32)
 
     def _release_shared_flow_refs(self,steps,remaining,cache,cache_state):
-        for key,_node in steps:
-            if key not in remaining:continue
-            remaining[key]-=1
-            if remaining[key]<=0:
-                remaining.pop(key,None)
-                old=cache.pop(key,None)
-                if old is not None:
-                    cache_state['bytes']=max(0,cache_state['bytes']-int(getattr(old,'nbytes',0)))
+        return _release_node_shared_flow_refs(steps,remaining,cache,cache_state)
 
     def _preview_node_signature(self,flow,node):
-        """Return only parameters that can change this node's pixels.
-
-        This exact signature is shared by preview caching and batch DAG reuse.
-        Unused/legacy cfg keys are deliberately excluded so they cannot prevent
-        mathematically identical flows from sharing a common prefix.
-        """
-        cfg=flow['cfg']
-        base_keys=(
-            'exposure','contrast','highlights','shadows','whites','blacks',
-            'temperature','tint','texture','clarity','dehaze','base_curve',
-            'hsl_hue','hsl_sat','hsl_lum','cg_shadow_h','cg_shadow_s','cg_mid_h','cg_mid_s','cg_high_h','cg_high_s','cg_balance',
-            'detail_sharpen','detail_radius','luma_nr','chroma_nr','opt_distortion','opt_vignette','opt_ca',
-            'cal_red_h','cal_red_s','cal_green_h','cal_green_s','cal_blue_h','cal_blue_s','_proxy_scale')
-        base_keys=base_keys+tuple(f'mix_{c}_{a}' for c in ('red','orange','yellow','green','aqua','blue','purple','magenta') for a in ('h','s','l'))
-        keysets={
-            'stretch':('stretch_strength','stretch_black'),
-            'basic':base_keys,
-            'usm':('usm_amount','usm_radius','usm_threshold','usm_passes'),
-            'bgr':('background','bg_radius','bg_strength','curves'),
-            'highpass':('hp_radius','hp_amount','hp_mode'),
-            'emboss':('emboss_angle','emboss_height','emboss_amount','emboss_opacity','emboss_blend','emboss_style'),
-            'br':('channel_output','channel_mono','channel_red','channel_green','channel_blue','channel_constant','channel_noise','channel_noise_strength','channel_noise_radius'),
-        }
-        vals={k:cfg.get(k) for k in keysets.get(node,())}
-        if node=='basic':
-            vals['_proxy_scale']=cfg.get('_proxy_scale',1.0)
-            vals['base_curves']=flow.get('base_curves',{})
-        elif node=='bgr':vals['curves_points']=flow.get('curves',{})
-        def canonical(v):
-            if isinstance(v,bool) or v is None or isinstance(v,str):return v
-            if isinstance(v,(int,float)):return float(v)
-            if isinstance(v,(list,tuple)):return [canonical(x) for x in v]
-            if isinstance(v,dict):return {str(k):canonical(vv) for k,vv in sorted(v.items(),key=lambda kv:str(kv[0]))}
-            try:return float(v)
-            except Exception:return repr(v)
-        vals=canonical(vals)
-        try:return json.dumps(vals,sort_keys=True,ensure_ascii=True,separators=(',',':'))
-        except Exception:return repr(vals)
+        return _node_flow_signature(flow,node)
 
     def _preview_cache_get(self,key):
         v=self.preview_stage_cache.get(key)
