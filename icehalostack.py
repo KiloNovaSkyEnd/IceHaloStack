@@ -28,7 +28,7 @@ from ihs.image_ops import (
 from ihs.image_io import (
     srgb_to_linear, linear_to_srgb, read_linear_rgb, save_tiff,
     save_timelapse_sequence_frame, resize_pil_percent,
-    resize_float_percent_array, _ffmpeg_even_pad_args,
+    resize_float_percent_array,
     save_timelapse_sequence_frame_scaled, _atomic_temp_path,
     _atomic_replace_with_retry, save_timelapse_sequence_frame_atomic,
     save_pil_png_atomic, prepare_video_frame, make_float_preview_proxy,
@@ -44,7 +44,9 @@ from ihs.stack_engine import (
     _iter_optimized_timelapse_masters, _timelapse_stack_engine_name,
     robust_luminance,
 )
-from ihs.output_pipeline import AsyncOutputPipeline
+from ihs.output_pipeline import (
+    AsyncOutputPipeline, _build_ffmpeg_video_plan, _run_ffmpeg_command,
+)
 from ihs.exposure_wb import (
     _EWB_TONE_KEYS, _ewb_default_config, _ewb_resize_float,
     _ewb_analysis_crop, _ewb_measure_proxy, _ewb_median_filter_1d,
@@ -3179,15 +3181,13 @@ class TimelapseWindow(tk.Toplevel):
                     ff=get_ffmpeg_executable()
                     if not ff:raise RuntimeError('未找到 FFmpeg。请重新运行启动脚本安装 imageio-ffmpeg，或把 ffmpeg.exe 放在程序目录/系统 PATH。图像序列若已启用仍已保存。')
                 self.queue.put(('tl_status',f"正在编码视频 {vidx}/{len(vidflows)} · {prof['name']}…"));fps=str(s['fps']);base_name=self._format_output_name(prof,method=s['method'],mode='timelapse');fmt=prof['video_format'];src_ext=seq_ext if prof['save_sequence'] else '.png';pattern=str(bundle['seq']/f'frame_%06d{src_ext}')
-                if fmt=='MP4 H.264':video_path=bundle['root']/f'{base_name}.mp4';cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
-                elif fmt=='MOV H.264':video_path=bundle['root']/f'{base_name}.mov';cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
-                elif fmt=='MOV ProRes':video_path=bundle['root']/f'{base_name}_ProRes.mov';cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','prores_ks','-profile:v','3','-pix_fmt','yuv422p10le',str(video_path)]
-                elif fmt=='GIF':
-                    video_path=bundle['root']/f'{base_name}.gif';palette=bundle['seq']/'palette.png';cmd1=[ff,'-y','-framerate',fps,'-i',pattern,'-vf','palettegen=stats_mode=diff',str(palette)];perf.touch('ffmpeg');tf=time.monotonic();p1=subprocess.run(cmd1,capture_output=True,text=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));perf.add_stage('ffmpeg',time.monotonic()-tf)
+                plan=_build_ffmpeg_video_plan(ff,fmt,fps,pattern,bundle['root'],base_name,bundle['seq'])
+                if plan is None:continue
+                video_path=plan['video_path']
+                if plan['palette_command'] is not None:
+                    p1=_run_ffmpeg_command(plan['palette_command'],perf)
                     if p1.returncode!=0:raise RuntimeError('GIF palette 生成失败：\n'+(p1.stderr or '')[-2000:])
-                    cmd=[ff,'-y','-framerate',fps,'-i',pattern,'-i',str(palette),'-lavfi','paletteuse=dither=sierra2_4a',str(video_path)]
-                else:continue
-                perf.touch('ffmpeg');tf=time.monotonic();p=subprocess.run(cmd,capture_output=True,text=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));perf.add_stage('ffmpeg',time.monotonic()-tf)
+                p=_run_ffmpeg_command(plan['encode_command'],perf)
                 if p.returncode!=0:raise RuntimeError('FFmpeg 编码失败：\n'+(p.stderr or '')[-3000:]+'\n\nsequence 文件夹已保留，可使用 repair_failed_video_export.bat 直接重新编码，无需重新堆栈。')
                 bundle['video_path']=video_path;video_paths.append(str(video_path))
                 if (not prof['save_sequence']) and bool(prof.get('delete_sequence_after_video_only',True)):shutil.rmtree(bundle['seq'],ignore_errors=True)
@@ -5274,14 +5274,13 @@ class TimelapseNodeWindow(tk.Toplevel):
                     ff=get_ffmpeg_executable()
                     if not ff:raise RuntimeError('未找到 FFmpeg。')
                 o=f['output'];fmt=o.get('video_format','MP4 H.264');fps=str(max(0.1,float(o.get('fps',24))));src_ext=ext.get(o.get('sequence_format','PNG 8-bit'),'.png') if o.get('save_sequence') else '.png';pattern=str(seq/f'frame_%06d{src_ext}');self.queue.put(('n_status',f'编码视频：{f["name"]}'))
-                if fmt=='MP4 H.264':vp=root/(name+'.mp4');cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(vp)]
-                elif fmt=='MOV H.264':vp=root/(name+'.mov');cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(vp)]
-                elif fmt=='MOV ProRes':vp=root/(name+'_ProRes.mov');cmd=[ff,'-y','-framerate',fps,'-i',pattern]+_ffmpeg_even_pad_args()+['-c:v','prores_ks','-profile:v','3','-pix_fmt','yuv422p10le',str(vp)]
-                else:
-                    vp=root/(name+'.gif');pal=seq/'palette.png';perf.touch('ffmpeg');tf=time.monotonic();p1=subprocess.run([ff,'-y','-framerate',fps,'-i',pattern,'-vf','palettegen=stats_mode=diff',str(pal)],capture_output=True,text=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));perf.add_stage('ffmpeg',time.monotonic()-tf)
+                plan=_build_ffmpeg_video_plan(ff,fmt,fps,pattern,root,name,seq)
+                if plan is None:plan=_build_ffmpeg_video_plan(ff,'GIF',fps,pattern,root,name,seq)
+                vp=plan['video_path']
+                if plan['palette_command'] is not None:
+                    p1=_run_ffmpeg_command(plan['palette_command'],perf)
                     if p1.returncode!=0:raise RuntimeError('GIF palette 生成失败：'+(p1.stderr or '')[-1000:])
-                    cmd=[ff,'-y','-framerate',fps,'-i',pattern,'-i',str(pal),'-lavfi','paletteuse=dither=sierra2_4a',str(vp)]
-                perf.touch('ffmpeg');tf=time.monotonic();pr=subprocess.run(cmd,capture_output=True,text=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));perf.add_stage('ffmpeg',time.monotonic()-tf)
+                pr=_run_ffmpeg_command(plan['encode_command'],perf)
                 if pr.returncode!=0:raise RuntimeError('FFmpeg 编码失败：'+(pr.stderr or '')[-2000:]+'\n\nsequence 文件夹已保留，可使用 repair_failed_video_export.bat 直接重新编码，无需重新堆栈。')
                 videos.append(str(vp))
                 if (not o.get('save_sequence')) and bool(o.get('delete_sequence_after_video_only',True)):shutil.rmtree(seq,ignore_errors=True)

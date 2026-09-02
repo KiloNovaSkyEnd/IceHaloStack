@@ -3,14 +3,45 @@
 from __future__ import annotations
 
 import gc
+import subprocess
 import threading
 import time
 from collections import deque
 from pathlib import Path
 from queue import Queue, Empty, Full
 
-from .image_io import save_pil_png_atomic, save_timelapse_sequence_frame_atomic
+from .image_io import (
+    _ffmpeg_even_pad_args, save_pil_png_atomic,
+    save_timelapse_sequence_frame_atomic,
+)
 from .performance import _GIB, _MIB
+
+
+def _build_ffmpeg_video_plan(ffmpeg, fmt, fps, pattern, output_root, base_name, sequence_dir):
+    """Build the exact v0.9.6.7 FFmpeg commands for one video output."""
+    root=Path(output_root);sequence=Path(sequence_dir)
+    common=[ffmpeg,'-y','-framerate',str(fps),'-i',str(pattern)];palette_command=None
+    if fmt=='MP4 H.264':
+        video_path=root/f'{base_name}.mp4';command=common+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
+    elif fmt=='MOV H.264':
+        video_path=root/f'{base_name}.mov';command=common+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
+    elif fmt=='MOV ProRes':
+        video_path=root/f'{base_name}_ProRes.mov';command=common+_ffmpeg_even_pad_args()+['-c:v','prores_ks','-profile:v','3','-pix_fmt','yuv422p10le',str(video_path)]
+    elif fmt=='GIF':
+        video_path=root/f'{base_name}.gif';palette=sequence/'palette.png'
+        palette_command=common+['-vf','palettegen=stats_mode=diff',str(palette)]
+        command=common+['-i',str(palette),'-lavfi','paletteuse=dither=sierra2_4a',str(video_path)]
+    else:return None
+    return {'video_path':video_path,'palette_command':palette_command,'encode_command':command}
+
+
+def _run_ffmpeg_command(command, perf=None):
+    """Run one FFmpeg command with the existing performance instrumentation."""
+    if perf is not None:perf.touch('ffmpeg')
+    started=time.monotonic()
+    result=subprocess.run(list(command),capture_output=True,text=True,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+    if perf is not None:perf.add_stage('ffmpeg',time.monotonic()-started)
+    return result
 
 class AsyncOutputPipeline:
     """RAM-aware bounded final-frame writer for v0.9.4.18l.
@@ -189,5 +220,4 @@ class AsyncOutputPipeline:
             except Exception:pass
         if getattr(self.owner,'_active_output_pipeline',None) is self:self.owner._active_output_pipeline=None
         gc.collect()
-
 

@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -10,46 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
-
-
-def legacy_plan(ffmpeg, fmt, fps, pattern, output_root, base_name, sequence_dir):
-    root = Path(output_root)
-    sequence = Path(sequence_dir)
-    common = [str(ffmpeg), "-y", "-framerate", str(fps), "-i", str(pattern)]
-    palette_command = None
-    if fmt == "MP4 H.264":
-        video_path = root / f"{base_name}.mp4"
-        command = common + app._ffmpeg_even_pad_args() + [
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-            "-pix_fmt", "yuv420p", str(video_path),
-        ]
-    elif fmt == "MOV H.264":
-        video_path = root / f"{base_name}.mov"
-        command = common + app._ffmpeg_even_pad_args() + [
-            "-c:v", "libx264", "-preset", "medium", "-crf", "18",
-            "-pix_fmt", "yuv420p", str(video_path),
-        ]
-    elif fmt == "MOV ProRes":
-        video_path = root / f"{base_name}_ProRes.mov"
-        command = common + app._ffmpeg_even_pad_args() + [
-            "-c:v", "prores_ks", "-profile:v", "3",
-            "-pix_fmt", "yuv422p10le", str(video_path),
-        ]
-    elif fmt == "GIF":
-        video_path = root / f"{base_name}.gif"
-        palette = sequence / "palette.png"
-        palette_command = common + ["-vf", "palettegen=stats_mode=diff", str(palette)]
-        command = common + [
-            "-i", str(palette), "-lavfi", "paletteuse=dither=sierra2_4a",
-            str(video_path),
-        ]
-    else:
-        return None
-    return {
-        "video_path": video_path,
-        "palette_command": palette_command,
-        "encode_command": command,
-    }
+import ihs.output_pipeline as output_pipeline
 
 
 class VideoOutputCommandTest(unittest.TestCase):
@@ -58,7 +21,9 @@ class VideoOutputCommandTest(unittest.TestCase):
         sequence = root / "sequence"
         pattern = sequence / "frame_%06d.png"
         plans = {
-            fmt: legacy_plan("ffmpeg.exe", fmt, "23.976", pattern, root, "halo", sequence)
+            fmt: output_pipeline._build_ffmpeg_video_plan(
+                "ffmpeg.exe", fmt, "23.976", pattern, root, "halo", sequence
+            )
             for fmt in ("MP4 H.264", "MOV H.264", "MOV ProRes", "GIF")
         }
         self.assertEqual(plans["MP4 H.264"]["video_path"], root / "halo.mp4")
@@ -74,7 +39,34 @@ class VideoOutputCommandTest(unittest.TestCase):
         ])
         self.assertIn("palettegen=stats_mode=diff", plans["GIF"]["palette_command"])
         self.assertIn("paletteuse=dither=sierra2_4a", plans["GIF"]["encode_command"])
-        self.assertIsNone(legacy_plan("ffmpeg", "unknown", 24, pattern, root, "halo", sequence))
+        self.assertIsNone(output_pipeline._build_ffmpeg_video_plan(
+            "ffmpeg", "unknown", 24, pattern, root, "halo", sequence
+        ))
+
+    def test_runner_preserves_subprocess_and_performance_contract(self):
+        class Perf:
+            def __init__(self):
+                self.touches = []
+                self.stages = []
+
+            def touch(self, label):
+                self.touches.append(label)
+
+            def add_stage(self, label, seconds):
+                self.stages.append((label, seconds))
+
+        perf = Perf()
+        completed = SimpleNamespace(returncode=0, stderr="")
+        with mock.patch.object(output_pipeline.subprocess, "run", return_value=completed) as run:
+            actual = output_pipeline._run_ffmpeg_command(["ffmpeg", "-version"], perf)
+        self.assertIs(actual, completed)
+        run.assert_called_once_with(
+            ["ffmpeg", "-version"], capture_output=True, text=True,
+            creationflags=getattr(output_pipeline.subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        self.assertEqual(perf.touches, ["ffmpeg"])
+        self.assertEqual(len(perf.stages), 1)
+        self.assertEqual(perf.stages[0][0], "ffmpeg")
 
 
 if __name__ == "__main__":
