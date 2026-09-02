@@ -9,11 +9,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as ihs
+import ihs.exposure_wb as exposure_wb
 import ihs.image_ops as image_ops
 
 # These focused numeric tests do not decode files.  Keep them runnable in the
 # lightweight development runtime where optional TIFF/RAW packages are absent.
 ihs._deps=lambda:(np,None,None,None,None,None,None)
+exposure_wb._deps=ihs._deps
 image_ops._deps=ihs._deps
 
 
