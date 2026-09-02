@@ -12,11 +12,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+from ihs.ui.node_window import TimelapseNodeWindow as ExtractedNodeWindow
 
 
 class NodeWindowContractTest(unittest.TestCase):
     def test_public_class_and_method_contract(self):
         window = app.TimelapseNodeWindow
+        self.assertIs(window, ExtractedNodeWindow)
+        self.assertEqual(window.__module__, "ihs.ui.node_window")
         self.assertTrue(issubclass(window, tk.Toplevel))
         self.assertEqual(window.NODE_ORDER, app._NODE_WORKFLOW_ORDER)
         expected = {
