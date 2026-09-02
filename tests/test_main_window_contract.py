@@ -12,11 +12,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.ui.main_window as main_window
 
 
 class MainWindowContractTest(unittest.TestCase):
     def test_public_class_and_method_contract(self):
         window = app.App
+        self.assertIs(window, main_window.App)
+        self.assertEqual(window.__module__, "ihs.ui.main_window")
         self.assertTrue(issubclass(window, tk.Tk))
         expected = {
             "__init__": ["self"],
