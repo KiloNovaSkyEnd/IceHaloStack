@@ -48,6 +48,17 @@ def harness():
     return window
 
 
+class Value:
+    def __init__(self, value=None):
+        self.value = value
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = value
+
+
 def flow(name="Flow", usm_amount=100.0):
     return {
         "name": name,
@@ -186,6 +197,70 @@ class NodeWorkflowTest(unittest.TestCase):
         self.assertTrue(loaded["output"]["delete_sequence_after_video_only"])
         with self.assertRaisesRegex(ValueError, "不是有效"):
             window._flow_from_payload({"format": "Other"})
+
+    def test_workflow_snapshot_commit_undo_redo_and_limit(self):
+        window = harness()
+        window.flows = [window._normalize_flow(flow("A")), window._normalize_flow(flow("B"))]
+        window.selected_flow = Value(1)
+        window.workflow_undo = []
+        window.workflow_redo = []
+        window.workflow_history_limit = 2
+        window.status = Value("ready")
+        refreshes = []
+        window._refresh_flow_list = lambda: refreshes.append("list")
+        window._draw_graph = lambda: refreshes.append("graph")
+        window._schedule_preview = lambda force=False: refreshes.append(("preview", force))
+
+        original = window._workflow_state()
+        original["flows"][1]["name"] = "snapshot-only"
+        self.assertEqual(window.flows[1]["name"], "B")
+
+        unchanged = window._workflow_state()
+        window._commit_workflow_history(unchanged, "no-op")
+        self.assertEqual(window.workflow_undo, [])
+        self.assertEqual(window.status.get(), "ready")
+
+        for name, label in (("B1", "first"), ("B2", "second"), ("B3", "third")):
+            before = window._workflow_state()
+            window.flows[1]["name"] = name
+            window._commit_workflow_history(before, label)
+        self.assertEqual(len(window.workflow_undo), 2)
+        self.assertEqual([item["label"] for item in window.workflow_undo], ["second", "third"])
+        self.assertEqual(window.workflow_redo, [])
+
+        window.workflow_undo_action()
+        self.assertEqual(window.flows[1]["name"], "B2")
+        self.assertEqual(window.status.get(), "已撤回：third · Ctrl+Shift+Z 可重做")
+        window.workflow_undo_action()
+        self.assertEqual(window.flows[1]["name"], "B1")
+        window.workflow_redo_action()
+        self.assertEqual(window.flows[1]["name"], "B2")
+        self.assertEqual(window.status.get(), "已重做：second")
+        self.assertEqual(refreshes.count("list"), 3)
+        self.assertEqual(refreshes.count("graph"), 3)
+        self.assertEqual(refreshes.count(("preview", True)), 3)
+
+    def test_workflow_history_empty_messages_and_empty_restore(self):
+        window = harness()
+        window.flows = [window._normalize_flow(flow("A"))]
+        window.selected_flow = Value(0)
+        window.workflow_undo = []
+        window.workflow_redo = []
+        window.workflow_history_limit = 80
+        window.status = Value("")
+        window._refresh_flow_list = lambda: None
+        window._draw_graph = lambda: None
+        window._schedule_preview = lambda force=False: None
+        window._new_flow = lambda name: window._normalize_flow(flow(name))
+
+        window.workflow_undo_action()
+        self.assertEqual(window.status.get(), "没有可撤回的节点操作")
+        window.workflow_redo_action()
+        self.assertEqual(window.status.get(), "没有可重做的节点操作")
+        window._restore_workflow_state({"flows": [], "selected_flow": 99})
+        self.assertEqual(len(window.flows), 1)
+        self.assertEqual(window.flows[0]["name"], "流程 1")
+        self.assertEqual(window.selected_flow.get(), 0)
 
 
 if __name__ == "__main__":
