@@ -12,10 +12,25 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.ui.node_window as node_window
 from ihs.ui.node_window import TimelapseNodeWindow as ExtractedNodeWindow
 
 
 class NodeWindowContractTest(unittest.TestCase):
+    def test_legacy_binding_is_limited_to_remaining_ui_helpers(self):
+        expected = {
+            "AngleDial", "_build_ewb_panel", "_build_timelapse_memory_panel",
+            "_enforce_regular_typography", "_ewb_config_snapshot", "_ewb_enabled",
+            "_ewb_open_workspace", "_ewb_require_analysis", "_ewb_settings_dialog",
+            "_init_ewb_vars", "_init_timelapse_memory_vars", "_make_vertical_scroll_area",
+            "_mousewheel_steps", "_translate_flow_list_item", "_ui_font",
+            "scale_timelapse_cfg_for_proxy",
+        }
+        self.assertEqual(set(node_window._LEGACY_DEPENDENCY_NAMES), expected)
+        for name in expected:
+            self.assertIs(getattr(node_window, name), getattr(app, name), name)
+        self.assertFalse(hasattr(node_window, "FONT_CHOICES"))
+
     def test_companion_class_contract(self):
         expected = {
             "LocalNodeEditorHistory": (
@@ -37,6 +52,8 @@ class NodeWindowContractTest(unittest.TestCase):
         }
         for name, (base, parameters, methods) in expected.items():
             cls = getattr(app, name)
+            self.assertIs(cls, getattr(node_window, name), name)
+            self.assertEqual(cls.__module__, "ihs.ui.node_window", name)
             self.assertTrue(issubclass(cls, base), name)
             self.assertEqual(list(inspect.signature(cls.__init__).parameters), parameters, name)
             for method in methods:
