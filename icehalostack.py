@@ -66,6 +66,12 @@ from ihs.node_workflow import (
     preview_cache_put as _node_preview_cache_put,
     clear_preview_stage_cache as _clear_node_preview_stage_cache,
     apply_flow_pipeline_preview_cached as _apply_node_flow_pipeline_preview_cached,
+    workflow_snapshot as _node_workflow_snapshot,
+    workflow_states_equal as _node_workflow_states_equal,
+    commit_workflow_history as _commit_node_workflow_history,
+    workflow_history_undo as _node_workflow_history_undo,
+    workflow_history_redo as _node_workflow_history_redo,
+    restore_workflow_snapshot as _restore_node_workflow_snapshot,
 )
 from ihs.exposure_wb import (
     _EWB_TONE_KEYS, _ewb_default_config, _ewb_resize_float,
@@ -3864,41 +3870,34 @@ class TimelapseNodeWindow(tk.Toplevel):
             widget.bind(seq,self._workflow_redo_shortcut,add='+')
 
     def _workflow_state(self):
-        return {'flows':copy.deepcopy(self.flows),'selected_flow':int(self.selected_flow.get() or 0)}
+        return _node_workflow_snapshot(self.flows,self.selected_flow.get())
 
     def _workflow_state_equal(self,a,b):
-        try:return a==b
-        except Exception:return False
+        return _node_workflow_states_equal(a,b)
 
     def _commit_workflow_history(self,before,label='节点操作'):
         after=self._workflow_state()
-        if self._workflow_state_equal(before,after):return
-        self.workflow_undo.append({'state':copy.deepcopy(before),'label':label})
-        if len(self.workflow_undo)>self.workflow_history_limit:self.workflow_undo=self.workflow_undo[-self.workflow_history_limit:]
-        self.workflow_redo.clear()
-        self.status.set(f'已应用：{label} · Ctrl+Z 可撤回')
+        changed=_commit_node_workflow_history(before,after,self.workflow_undo,self.workflow_redo,self.workflow_history_limit,label)
+        if changed:self.status.set(f'已应用：{label} · Ctrl+Z 可撤回')
 
     def _restore_workflow_state(self,state):
-        self.flows=copy.deepcopy(state.get('flows',[])) or [self._new_flow('流程 1')]
-        for i,f in enumerate(self.flows):self.flows[i]=self._normalize_flow(f)
-        idx=max(0,min(len(self.flows)-1,int(state.get('selected_flow',0) or 0)))
+        self.flows,idx=_restore_node_workflow_snapshot(
+            state,lambda:self._new_flow('流程 1'),self._default_cfg(),
+            self._default_node_layout(),self.NODE_ORDER,
+        )
         self.selected_flow.set(idx)
         self._refresh_flow_list();self._draw_graph();self._schedule_preview(force=True)
 
     def workflow_undo_action(self):
-        if not self.workflow_undo:
+        item=_node_workflow_history_undo(self._workflow_state(),self.workflow_undo,self.workflow_redo,self.workflow_history_limit)
+        if item is None:
             self.status.set('没有可撤回的节点操作');return
-        current=self._workflow_state();item=self.workflow_undo.pop()
-        self.workflow_redo.append({'state':current,'label':item.get('label','节点操作')})
-        if len(self.workflow_redo)>self.workflow_history_limit:self.workflow_redo=self.workflow_redo[-self.workflow_history_limit:]
         self._restore_workflow_state(item['state']);self.status.set(f"已撤回：{item.get('label','节点操作')} · Ctrl+Shift+Z 可重做")
 
     def workflow_redo_action(self):
-        if not self.workflow_redo:
+        item=_node_workflow_history_redo(self._workflow_state(),self.workflow_undo,self.workflow_redo,self.workflow_history_limit)
+        if item is None:
             self.status.set('没有可重做的节点操作');return
-        current=self._workflow_state();item=self.workflow_redo.pop()
-        self.workflow_undo.append({'state':current,'label':item.get('label','节点操作')})
-        if len(self.workflow_undo)>self.workflow_history_limit:self.workflow_undo=self.workflow_undo[-self.workflow_history_limit:]
         self._restore_workflow_state(item['state']);self.status.set(f"已重做：{item.get('label','节点操作')}")
 
     def _workflow_undo_shortcut(self,event=None):

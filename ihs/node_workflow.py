@@ -68,6 +68,45 @@ def normalize_flow(flow,default_cfg,default_layout,node_order=NODE_ORDER):
     return flow
 
 
+def workflow_snapshot(flows,selected_flow):
+    return {'flows':copy.deepcopy(flows),'selected_flow':int(selected_flow or 0)}
+
+
+def workflow_states_equal(first,second):
+    try:return first==second
+    except Exception:return False
+
+
+def commit_workflow_history(before,after,undo,redo,limit,label='节点操作'):
+    if workflow_states_equal(before,after):return False
+    undo.append({'state':copy.deepcopy(before),'label':label})
+    if len(undo)>limit:undo[:]=undo[-limit:]
+    redo.clear()
+    return True
+
+
+def workflow_history_undo(current,undo,redo,limit):
+    if not undo:return None
+    item=undo.pop();redo.append({'state':current,'label':item.get('label','节点操作')})
+    if len(redo)>limit:redo[:]=redo[-limit:]
+    return item
+
+
+def workflow_history_redo(current,undo,redo,limit):
+    if not redo:return None
+    item=redo.pop();undo.append({'state':current,'label':item.get('label','节点操作')})
+    if len(undo)>limit:undo[:]=undo[-limit:]
+    return item
+
+
+def restore_workflow_snapshot(state,default_flow_factory,default_cfg,default_layout,node_order=NODE_ORDER):
+    flows=copy.deepcopy(state.get('flows',[]))
+    if not flows:flows=[default_flow_factory()]
+    for index,flow in enumerate(flows):flows[index]=normalize_flow(flow,default_cfg,default_layout,node_order)
+    selected=max(0,min(len(flows)-1,int(state.get('selected_flow',0) or 0)))
+    return flows,selected
+
+
 def node_enabled(flow,key):
     if key not in flow.get('present_nodes',[]):return False
     cfg=flow['cfg']
