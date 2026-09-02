@@ -20,10 +20,9 @@ class NodeWindowContractTest(unittest.TestCase):
     def test_legacy_binding_is_limited_to_remaining_ui_helpers(self):
         expected = {
             "AngleDial", "_build_ewb_panel", "_build_timelapse_memory_panel",
-            "_enforce_regular_typography", "_ewb_config_snapshot", "_ewb_enabled",
+            "_ewb_config_snapshot", "_ewb_enabled",
             "_ewb_open_workspace", "_ewb_require_analysis", "_ewb_settings_dialog",
-            "_init_ewb_vars", "_init_timelapse_memory_vars", "_make_vertical_scroll_area",
-            "_mousewheel_steps", "_translate_flow_list_item", "_ui_font",
+            "_init_ewb_vars", "_init_timelapse_memory_vars",
             "scale_timelapse_cfg_for_proxy",
         }
         self.assertEqual(set(node_window._LEGACY_DEPENDENCY_NAMES), expected)

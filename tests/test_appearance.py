@@ -12,9 +12,24 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.ui.appearance as appearance
 
 
 class AppearanceContractTest(unittest.TestCase):
+    def test_entry_reexports_helpers_and_dynamic_state(self):
+        for name in (
+            "_translate_flow_list_item", "_ui_font", "_enforce_regular_typography",
+            "_make_vertical_scroll_area", "_mousewheel_steps",
+        ):
+            self.assertIs(getattr(app, name), getattr(appearance, name), name)
+            self.assertEqual(getattr(app, name).__module__, "ihs.ui.appearance", name)
+        original = appearance.UI_FONT_FAMILY
+        try:
+            appearance.UI_FONT_FAMILY = "Contract Font"
+            self.assertEqual(app.UI_FONT_FAMILY, "Contract Font")
+        finally:
+            appearance.UI_FONT_FAMILY = original
+
     def test_flow_name_translation_preserves_custom_names(self):
         self.assertEqual(app._translate_flow_list_item("流程 12", "en"), "Flow 12")
         self.assertEqual(app._translate_flow_list_item("● 2  流程 3 副本 副本", "en"), "● 2  Flow 3 Copy Copy")

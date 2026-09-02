@@ -15,6 +15,10 @@ from queue import Empty, Queue
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from .appearance import (
+    _enforce_regular_typography, _make_vertical_scroll_area,
+    _mousewheel_steps, _translate_flow_list_item, _ui_font,
+)
 from ..constants import APP_NAME, VERSION
 from ..dependencies import _deps, get_ffmpeg_executable
 from ..exposure_wb import _ewb_apply_to_frame
@@ -63,10 +67,9 @@ from ..stack_engine import (
 
 _LEGACY_DEPENDENCY_NAMES = (
     'AngleDial', '_build_ewb_panel', '_build_timelapse_memory_panel',
-    '_enforce_regular_typography', '_ewb_config_snapshot', '_ewb_enabled',
+    '_ewb_config_snapshot', '_ewb_enabled',
     '_ewb_open_workspace', '_ewb_require_analysis', '_ewb_settings_dialog',
-    '_init_ewb_vars', '_init_timelapse_memory_vars', '_make_vertical_scroll_area',
-    '_mousewheel_steps', '_translate_flow_list_item', '_ui_font',
+    '_init_ewb_vars', '_init_timelapse_memory_vars',
     'scale_timelapse_cfg_for_proxy',
 )
 
