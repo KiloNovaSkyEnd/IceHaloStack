@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.node_workflow as node_workflow
 from test_node_execution_characterization import active_flow, fixed_image, harness
 
 
@@ -109,6 +110,27 @@ class NodePreviewCharacterizationTest(unittest.TestCase):
         window._clear_preview_stage_cache()
         self.assertEqual(window.preview_stage_cache, {})
         self.assertEqual(window.preview_stage_cache_order, [])
+
+    def test_cancellation_is_rechecked_after_an_uncached_node(self):
+        window = preview_harness()
+        flow = window._normalize_flow(active_flow("Cancel"))
+        calls = {"count": 0}
+        original = node_workflow.apply_single_flow_node
+
+        def apply_once(out, node, current_flow):
+            calls["count"] += 1
+            return original(out, node, current_flow)
+
+        node_workflow.apply_single_flow_node = apply_once
+        try:
+            actual = node_workflow.apply_flow_pipeline_preview_cached(
+                fixed_image(), flow, "fast", {}, [], 18, 7,
+                is_cancelled=lambda: calls["count"] >= 1,
+            )
+        finally:
+            node_workflow.apply_single_flow_node = original
+        self.assertIsNone(actual)
+        self.assertEqual(calls["count"], 1)
 
 
 if __name__ == "__main__":

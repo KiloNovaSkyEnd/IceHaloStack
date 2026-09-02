@@ -215,6 +215,49 @@ def apply_flow_pipeline(img,flow,node_order=NODE_ORDER):
     return np.clip(out,0,1).astype(np.float32)
 
 
+def preview_cache_get(cache,cache_order,key):
+    value=cache.get(key)
+    if value is None:return None
+    try:cache_order.remove(key)
+    except ValueError:pass
+    cache_order.append(key)
+    return value
+
+
+def preview_cache_put(cache,cache_order,key,value,cache_limit):
+    cache[key]=value
+    try:cache_order.remove(key)
+    except ValueError:pass
+    cache_order.append(key)
+    while len(cache_order)>max(4,int(cache_limit)):
+        old=cache_order.pop(0);cache.pop(old,None)
+
+
+def clear_preview_stage_cache(cache,cache_order):
+    cache.clear();cache_order.clear()
+
+
+def apply_flow_pipeline_preview_cached(img,flow,quality,cache,cache_order,cache_limit,reference_serial,is_cancelled=None,stop_node=None,node_order=NODE_ORDER):
+    """Run a faithful node preview with bounded per-stage caching."""
+    np,*_=_deps();out=img.astype(np.float32,copy=True);order=flow_exec_order(flow,node_order)
+    chain=('base',quality,int(reference_serial),tuple(order),out.shape)
+    for node in order:
+        if is_cancelled is not None and is_cancelled():return None
+        signature=node_signature(flow,node)
+        if quality=='hq':out=apply_single_flow_node(out,node,flow)
+        else:
+            key=(chain,node,signature);cached=preview_cache_get(cache,cache_order,key)
+            if cached is not None:out=cached
+            else:
+                out=apply_single_flow_node(out,node,flow)
+                if is_cancelled is not None and is_cancelled():return None
+                preview_cache_put(cache,cache_order,key,out.astype(np.float32,copy=True),cache_limit)
+            chain=(chain,node,signature)
+        if stop_node and node==stop_node:break
+    if is_cancelled is not None and is_cancelled():return None
+    return np.clip(out,0,1).astype(np.float32)
+
+
 def execute_shared_flow(master,flow,steps,remaining,cache,cache_state,stats,policy,perf=None):
     """Execute one flow with RAM-only reuse of identical upstream node results."""
     np,*_=_deps();out=None;cap=shared_dag_cache_cap(policy)

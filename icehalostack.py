@@ -62,6 +62,10 @@ from ihs.node_workflow import (
     execute_shared_flow as _execute_node_shared_flow,
     preset_payload as _node_preset_payload,
     flow_from_payload as _node_flow_from_payload,
+    preview_cache_get as _node_preview_cache_get,
+    preview_cache_put as _node_preview_cache_put,
+    clear_preview_stage_cache as _clear_node_preview_stage_cache,
+    apply_flow_pipeline_preview_cached as _apply_node_flow_pipeline_preview_cached,
 )
 from ihs.exposure_wb import (
     _EWB_TONE_KEYS, _ewb_default_config, _ewb_resize_float,
@@ -4161,61 +4165,22 @@ class TimelapseNodeWindow(tk.Toplevel):
         return _node_flow_signature(flow,node)
 
     def _preview_cache_get(self,key):
-        v=self.preview_stage_cache.get(key)
-        if v is None:return None
-        try:
-            self.preview_stage_cache_order.remove(key)
-        except ValueError:
-            pass
-        self.preview_stage_cache_order.append(key)
-        return v
+        return _node_preview_cache_get(self.preview_stage_cache,self.preview_stage_cache_order,key)
 
     def _preview_cache_put(self,key,value):
-        self.preview_stage_cache[key]=value
-        try:self.preview_stage_cache_order.remove(key)
-        except ValueError:pass
-        self.preview_stage_cache_order.append(key)
-        while len(self.preview_stage_cache_order)>max(4,int(self.preview_cache_limit)):
-            old=self.preview_stage_cache_order.pop(0)
-            self.preview_stage_cache.pop(old,None)
+        return _node_preview_cache_put(self.preview_stage_cache,self.preview_stage_cache_order,key,value,self.preview_cache_limit)
 
     def _clear_preview_stage_cache(self):
-        self.preview_stage_cache.clear();self.preview_stage_cache_order.clear()
+        return _clear_node_preview_stage_cache(self.preview_stage_cache,self.preview_stage_cache_order)
 
     def _apply_flow_pipeline_preview_cached(self,img,flow,quality,token=None,stop_node=None):
-        """Execute a responsive but mathematically faithful node preview.
-
-        Drag/fast passes use the exact production node functions on reduced proxies.
-        While the user is actively dragging a node control, the preview may stop after
-        that currently edited node to provide immediate visual feedback. Mouse release
-        and HQ refinement always render the complete flow. Stale work can abandon at
-        node boundaries when a newer preview token supersedes it.
-        """
-        np,*_=_deps();flow=self._normalize_flow(flow);out=img.astype(np.float32,copy=True)
-        order=self._flow_exec_order(flow)
-        chain=('base',quality,int(getattr(self,'_preview_reference_serial',0)),tuple(order),out.shape)
-        for node in order:
-            if token is not None and token != self.preview_token:
-                return None
-            ns=self._preview_node_signature(flow,node)
-            if quality=='hq':
-                out=self._apply_single_flow_node(out,node,flow)
-            else:
-                key=(chain,node,ns)
-                cached=self._preview_cache_get(key)
-                if cached is not None:
-                    out=cached
-                else:
-                    out=self._apply_single_flow_node(out,node,flow)
-                    if token is not None and token != self.preview_token:
-                        return None
-                    self._preview_cache_put(key,out.astype(np.float32,copy=True))
-                chain=(chain,node,ns)
-            if stop_node and node==stop_node:
-                break
-        if token is not None and token != self.preview_token:
-            return None
-        return np.clip(out,0,1).astype(np.float32)
+        flow=self._normalize_flow(flow)
+        cancelled=lambda: token is not None and token != self.preview_token
+        return _apply_node_flow_pipeline_preview_cached(
+            img,flow,quality,self.preview_stage_cache,self.preview_stage_cache_order,
+            self.preview_cache_limit,getattr(self,'_preview_reference_serial',0),
+            cancelled,stop_node,self.NODE_ORDER,
+        )
 
     def _draw_graph(self):
         if not hasattr(self,'node_canvas'):return
