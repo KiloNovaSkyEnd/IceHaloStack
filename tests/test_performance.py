@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import icehalostack as perf
+import ihs.performance as perf
 
 
 GIB = 1024 ** 3
@@ -118,4 +118,3 @@ class PerformanceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
