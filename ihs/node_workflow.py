@@ -4,9 +4,18 @@ from __future__ import annotations
 
 import copy
 import json
+import time
 from collections import Counter
 
-from .performance import _GIB, _MIB
+from .dependencies import _deps
+from .image_ops import (
+    apply_asinh_stretch, apply_base_editor, apply_usm,
+    background_suppression, apply_curve_lut, build_curve_lut,
+    apply_highpass, apply_emboss, apply_channel_mixer,
+)
+from .performance import (
+    _GIB, _MIB, _system_memory_status, _process_memory_rss,
+)
 
 
 NODE_ORDER = [
@@ -169,3 +178,74 @@ def release_shared_flow_refs(steps,remaining,cache,cache_state):
         if remaining[key]<=0:
             remaining.pop(key,None);old=cache.pop(key,None)
             if old is not None:cache_state['bytes']=max(0,cache_state['bytes']-int(getattr(old,'nbytes',0)))
+
+
+def apply_single_flow_node(out,node,flow):
+    """Apply one node using the v0.9.6.7 preview/final pixel implementation."""
+    cfg=flow['cfg'];curves=flow['curves']
+    if node=='stretch':
+        if cfg.get('stretch',False):out=apply_asinh_stretch(out,float(cfg.get('stretch_strength',8)),float(cfg.get('stretch_black',0)))
+    elif node=='basic':
+        if cfg.get('basic',False):out=apply_base_editor(out,cfg,flow.get('base_curves'))
+    elif node=='usm':
+        if cfg.get('usm',False):
+            passes=max(1,min(10,int(cfg.get('usm_passes',1))))
+            for _ in range(passes):out=apply_usm(out,float(cfg.get('usm_amount',100)),float(cfg.get('usm_radius',2)),float(cfg.get('usm_threshold',0)))
+    elif node=='bgr':
+        if cfg.get('bgr',False):
+            if cfg.get('background',False):out=background_suppression(out,float(cfg.get('bg_radius',80)),float(cfg.get('bg_strength',100)))
+            if cfg.get('curves',False) and curves:
+                for channel in ['RGB','红色','绿色','蓝色','亮度']:
+                    points=curves.get(channel,[(0.0,0.0),(1.0,1.0)])
+                    identity=len(points)==2 and abs(points[0][0])<1e-6 and abs(points[0][1])<1e-6 and abs(points[1][0]-1)<1e-6 and abs(points[1][1]-1)<1e-6
+                    if not identity:out=apply_curve_lut(out,build_curve_lut(points,256),channel)
+    elif node=='highpass':
+        if cfg.get('highpass',False):out=apply_highpass(out,float(cfg.get('hp_radius',10)),float(cfg.get('hp_amount',100)),str(cfg.get('hp_mode','Overlay')))
+    elif node=='emboss':
+        if cfg.get('emboss',False):out=apply_emboss(out,float(cfg.get('emboss_angle',-128)),float(cfg.get('emboss_height',1)),float(cfg.get('emboss_amount',100)),float(cfg.get('emboss_opacity',100)),str(cfg.get('emboss_blend','Normal')),str(cfg.get('emboss_style','Photoshop Emboss')))
+    elif node=='br':
+        if cfg.get('br',False):
+            out=apply_channel_mixer(out,cfg.get('channel_output','灰色'),bool(cfg.get('channel_mono',True)),float(cfg.get('channel_red',40)),float(cfg.get('channel_green',40)),float(cfg.get('channel_blue',20)),float(cfg.get('channel_constant',0)),bool(cfg.get('channel_noise',True)),float(cfg.get('channel_noise_strength',30)),float(cfg.get('channel_noise_radius',0.8)))
+    return out
+
+
+def apply_flow_pipeline(img,flow,node_order=NODE_ORDER):
+    np,*_=_deps();out=img.astype(np.float32,copy=True)
+    for node in flow_exec_order(flow,node_order):out=apply_single_flow_node(out,node,flow)
+    return np.clip(out,0,1).astype(np.float32)
+
+
+def execute_shared_flow(master,flow,steps,remaining,cache,cache_state,stats,policy,perf=None):
+    """Execute one flow with RAM-only reuse of identical upstream node results."""
+    np,*_=_deps();out=None;cap=shared_dag_cache_cap(policy)
+    limit=max(1,int((policy or {}).get('limit_bytes',4*_GIB)))
+    reserve=max(512*_MIB,int((policy or {}).get('system_reserve_bytes',4*_GIB)))
+    for key,node in steps:
+        cached=cache.get(key)
+        if cached is not None:
+            out=cached;stats['hits']+=1;stats.setdefault('hits_by_node',Counter())[node]+=1;continue
+        if out is None:out=master.astype(np.float32,copy=True)
+        if perf is not None:perf.touch('node:'+str(node))
+        started=time.monotonic();out=apply_single_flow_node(out,node,flow);elapsed=time.monotonic()-started
+        stats['computes']+=1;stats.setdefault('computes_by_node',Counter())[node]+=1
+        if perf is not None:perf.record_node(node,elapsed)
+        if remaining.get(key,0)>1:
+            size=int(getattr(out,'nbytes',0));_,available=_system_memory_status();rss=_process_memory_rss()
+            safe=(size>0 and cache_state['bytes']+size<=cap and rss<limit*0.93 and (available<=0 or available>max(512*_MIB,int(reserve*0.70))))
+            if safe:
+                cache[key]=out;cache_state['bytes']+=size;cache_state['peak']=max(cache_state['peak'],cache_state['bytes']);stats['stores']+=1
+            else:stats['budget_skips']+=1
+    if out is None:out=master.astype(np.float32,copy=True)
+    return np.clip(out,0,1).astype(np.float32)
+
+
+def preset_payload(flow,node_order=NODE_ORDER,default_layout=None):
+    layout=default_layout or {}
+    present=flow.get('present_nodes',[key for key,_ in node_order])
+    return {'format':'IceHaloStackFlowPreset','version':5,'name':flow['name'],'cfg':copy.deepcopy(flow['cfg']),'curves':copy.deepcopy(flow['curves']),'base_curves':copy.deepcopy(flow.get('base_curves',{})),'present_nodes':copy.deepcopy(present),'layout':copy.deepcopy(flow.get('layout',layout)),'edges':copy.deepcopy(flow.get('edges',default_edges(present,node_order))),'output':copy.deepcopy(flow['output'])}
+
+
+def flow_from_payload(data,base_flow,default_cfg,default_layout,node_order=NODE_ORDER):
+    if not isinstance(data,dict) or data.get('format')!='IceHaloStackFlowPreset':raise ValueError('不是有效的 IceHaloStack 流程预设。')
+    flow=base_flow;flow['cfg'].update(data.get('cfg',{}));flow['curves']=data.get('curves',flow['curves']);flow['base_curves']=data.get('base_curves',flow.get('base_curves',{}));flow['present_nodes']=data.get('present_nodes',flow.get('present_nodes',[key for key,_ in node_order]));flow['layout']=data.get('layout',flow.get('layout',default_layout));flow['edges']=data.get('edges',flow.get('edges',default_edges(flow.get('present_nodes',[key for key,_ in node_order]),node_order)));flow['output'].update(data.get('output',{}))
+    return normalize_flow(flow,default_cfg,default_layout,node_order)

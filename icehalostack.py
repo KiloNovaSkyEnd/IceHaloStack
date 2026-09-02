@@ -57,6 +57,11 @@ from ihs.node_workflow import (
     prepare_shared_node_dag as _prepare_node_shared_dag,
     shared_dag_cache_cap as _node_shared_dag_cache_cap,
     release_shared_flow_refs as _release_node_shared_flow_refs,
+    apply_single_flow_node as _apply_node_flow_node,
+    apply_flow_pipeline as _apply_node_flow_pipeline,
+    execute_shared_flow as _execute_node_shared_flow,
+    preset_payload as _node_preset_payload,
+    flow_from_payload as _node_flow_from_payload,
 )
 from ihs.exposure_wb import (
     _EWB_TONE_KEYS, _ewb_default_config, _ewb_resize_float,
@@ -4131,54 +4136,11 @@ class TimelapseNodeWindow(tk.Toplevel):
         return _node_flow_exec_order(flow,self.NODE_ORDER)
 
     def _apply_single_flow_node(self,out,node,flow):
-        """Apply one node with the exact same math used by final batch output.
-
-        Preview acceleration is allowed to reuse/crop/cache inputs, but it must
-        never use a different sharpening/emboss/background algorithm than the
-        final renderer. Keeping the node math in one function prevents the old
-        "preview looks strong, Apply looks weak" regression.
-        """
-        cfg=flow['cfg'];curves=flow['curves']
-        if node=='stretch':
-            if cfg.get('stretch',False):
-                out=apply_asinh_stretch(out,float(cfg.get('stretch_strength',8)),float(cfg.get('stretch_black',0)))
-        elif node=='basic':
-            if cfg.get('basic',False):
-                out=apply_base_editor(out,cfg,flow.get('base_curves'))
-        elif node=='usm':
-            if cfg.get('usm',False):
-                passes=max(1,min(10,int(cfg.get('usm_passes',1))))
-                for _ in range(passes):
-                    out=apply_usm(out,float(cfg.get('usm_amount',100)),float(cfg.get('usm_radius',2)),float(cfg.get('usm_threshold',0)))
-        elif node=='bgr':
-            if cfg.get('bgr',False):
-                if cfg.get('background',False):
-                    out=background_suppression(out,float(cfg.get('bg_radius',80)),float(cfg.get('bg_strength',100)))
-                if cfg.get('curves',False) and curves:
-                    for ch in ['RGB','红色','绿色','蓝色','亮度']:
-                        pts=curves.get(ch,[(0.0,0.0),(1.0,1.0)])
-                        identity=len(pts)==2 and abs(pts[0][0])<1e-6 and abs(pts[0][1])<1e-6 and abs(pts[1][0]-1)<1e-6 and abs(pts[1][1]-1)<1e-6
-                        if not identity:
-                            out=apply_curve_lut(out,build_curve_lut(pts,256),ch)
-        elif node=='highpass':
-            if cfg.get('highpass',False):
-                out=apply_highpass(out,float(cfg.get('hp_radius',10)),float(cfg.get('hp_amount',100)),str(cfg.get('hp_mode','Overlay')))
-        elif node=='emboss':
-            if cfg.get('emboss',False):
-                out=apply_emboss(out,float(cfg.get('emboss_angle',-128)),float(cfg.get('emboss_height',1)),float(cfg.get('emboss_amount',100)),float(cfg.get('emboss_opacity',100)),str(cfg.get('emboss_blend','Normal')),str(cfg.get('emboss_style','Photoshop Emboss')))
-        elif node=='br':
-            if cfg.get('br',False):
-                out=apply_channel_mixer(out,
-                    cfg.get('channel_output','灰色'),bool(cfg.get('channel_mono',True)),
-                    float(cfg.get('channel_red',40)),float(cfg.get('channel_green',40)),float(cfg.get('channel_blue',20)),float(cfg.get('channel_constant',0)),
-                    bool(cfg.get('channel_noise',True)),float(cfg.get('channel_noise_strength',30)),float(cfg.get('channel_noise_radius',0.8)))
-        return out
+        return _apply_node_flow_node(out,node,flow)
 
     def _apply_flow_pipeline(self,img,flow):
-        np,*_=_deps();out=img.astype(np.float32,copy=True);flow=self._normalize_flow(flow)
-        for node in self._flow_exec_order(flow):
-            out=self._apply_single_flow_node(out,node,flow)
-        return np.clip(out,0,1).astype(np.float32)
+        flow=self._normalize_flow(flow)
+        return _apply_node_flow_pipeline(img,flow,self.NODE_ORDER)
 
     def _prepare_shared_node_dag(self,flows):
         normalized=[self._normalize_flow(flow) for flow in flows]
@@ -4189,37 +4151,8 @@ class TimelapseNodeWindow(tk.Toplevel):
         return _node_shared_dag_cache_cap(policy)
 
     def _execute_shared_flow(self,master,flow,steps,remaining,cache,cache_state,stats,policy):
-        """Execute one output flow while reusing identical results from earlier flows.
-
-        The cache exists for one timelapse Master only. It is RAM-only, bounded by the
-        user's RAM Budget, and discarded before the next Master. If pressure is high,
-        a shareable node is simply recomputed later instead of spilling to disk.
-        """
-        np,*_=_deps();out=None
-        cap=self._shared_dag_cache_cap(policy)
-        limit=max(1,int((policy or {}).get('limit_bytes',4*_GIB)))
-        reserve=max(512*_MIB,int((policy or {}).get('system_reserve_bytes',4*_GIB)))
-        for key,node in steps:
-            cached=cache.get(key)
-            if cached is not None:
-                out=cached;stats['hits']+=1;stats.setdefault('hits_by_node',Counter())[node]+=1
-                continue
-            if out is None:
-                out=master.astype(np.float32,copy=True)
-            perf=getattr(self,'_active_performance_monitor',None)
-            if perf is not None:perf.touch('node:'+str(node))
-            tn=time.monotonic();out=self._apply_single_flow_node(out,node,flow);dt=time.monotonic()-tn;stats['computes']+=1;stats.setdefault('computes_by_node',Counter())[node]+=1
-            if perf is not None:perf.record_node(node,dt)
-            # Retain only results that another flow will actually reuse.
-            if remaining.get(key,0)>1:
-                nb=int(getattr(out,'nbytes',0));_,avail=_system_memory_status();rss=_process_memory_rss()
-                safe=(nb>0 and cache_state['bytes']+nb<=cap and rss<limit*0.93 and (avail<=0 or avail>max(512*_MIB,int(reserve*0.70))))
-                if safe:
-                    cache[key]=out;cache_state['bytes']+=nb;cache_state['peak']=max(cache_state['peak'],cache_state['bytes']);stats['stores']+=1
-                else:
-                    stats['budget_skips']+=1
-        if out is None:out=master.astype(np.float32,copy=True)
-        return np.clip(out,0,1).astype(np.float32)
+        perf=getattr(self,'_active_performance_monitor',None)
+        return _execute_node_shared_flow(master,flow,steps,remaining,cache,cache_state,stats,policy,perf)
 
     def _release_shared_flow_refs(self,steps,remaining,cache,cache_state):
         return _release_node_shared_flow_refs(steps,remaining,cache,cache_state)
@@ -5000,10 +4933,11 @@ class TimelapseNodeWindow(tk.Toplevel):
 
     def _preset_payload(self,f):
         f=self._normalize_flow(copy.deepcopy(f))
-        return {'format':'IceHaloStackFlowPreset','version':5,'name':f['name'],'cfg':copy.deepcopy(f['cfg']),'curves':copy.deepcopy(f['curves']),'base_curves':copy.deepcopy(f.get('base_curves',{})),'present_nodes':copy.deepcopy(f.get('present_nodes',[k for k,_ in self.NODE_ORDER])),'layout':copy.deepcopy(f.get('layout',self._default_node_layout())),'edges':copy.deepcopy(f.get('edges',self._default_edges(f.get('present_nodes',[k for k,_ in self.NODE_ORDER])))),'output':copy.deepcopy(f['output'])}
+        return _node_preset_payload(f,self.NODE_ORDER,self._default_node_layout())
     def _flow_from_payload(self,data):
         if not isinstance(data,dict) or data.get('format')!='IceHaloStackFlowPreset':raise ValueError('不是有效的 IceHaloStack 流程预设。')
-        f=self._new_flow(str(data.get('name','导入流程')));f['cfg'].update(data.get('cfg',{}));f['curves']=data.get('curves',f['curves']);f['base_curves']=data.get('base_curves',f.get('base_curves',{}));f['present_nodes']=data.get('present_nodes',f.get('present_nodes',[k for k,_ in self.NODE_ORDER]));f['layout']=data.get('layout',f.get('layout',self._default_node_layout()));f['edges']=data.get('edges',f.get('edges',self._default_edges(f.get('present_nodes',[k for k,_ in self.NODE_ORDER]))));f['output'].update(data.get('output',{}));return self._normalize_flow(f)
+        f=self._new_flow(str(data.get('name','导入流程')))
+        return _node_flow_from_payload(data,f,self._default_cfg(),self._default_node_layout(),self.NODE_ORDER)
     def _save_preset(self):
         f=self._flow();
         if not f:return
