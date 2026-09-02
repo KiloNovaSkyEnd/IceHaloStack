@@ -12,6 +12,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.node_workflow as node_workflow
+import ihs.ui.appearance as appearance
+import ihs.ui.exposure_wb_window as exposure_wb_window
+import ihs.ui.performance_panel as performance_panel
 
 
 class UiModuleContractTest(unittest.TestCase):
@@ -50,6 +54,16 @@ class UiModuleContractTest(unittest.TestCase):
         self.assertEqual(actual["hp_radius"], 0.1)
         self.assertEqual(actual["emboss_height"], 0.1)
         self.assertEqual(actual["channel_noise_radius"], 0.2)
+
+    def test_helpers_are_reexported_from_their_new_modules(self):
+        self.assertIs(app.AngleDial, appearance.AngleDial)
+        self.assertIs(app._init_ewb_vars, exposure_wb_window._init_ewb_vars)
+        self.assertIs(app._ewb_open_workspace, exposure_wb_window._ewb_open_workspace)
+        self.assertIs(app._build_ewb_panel, exposure_wb_window._build_ewb_panel)
+        self.assertIs(app._init_timelapse_memory_vars, performance_panel._init_timelapse_memory_vars)
+        self.assertIs(app._build_timelapse_memory_panel, performance_panel._build_timelapse_memory_panel)
+        self.assertIs(app.scale_timelapse_cfg_for_proxy, node_workflow.scale_timelapse_cfg_for_proxy)
+        self.assertIs(app.apply_timelapse_pipeline, node_workflow.apply_timelapse_pipeline)
 
 
 if __name__ == "__main__":

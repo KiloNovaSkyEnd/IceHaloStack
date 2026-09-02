@@ -120,7 +120,11 @@ if __name__ == "__main__":
     test_tone_math()
     source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (ROOT / "icehalostack.py", ROOT / "ihs" / "ui" / "node_window.py")
+        for path in (
+            ROOT / "icehalostack.py",
+            ROOT / "ihs" / "ui" / "node_window.py",
+            ROOT / "ihs" / "ui" / "exposure_wb_window.py",
+        )
     )
     for marker in ("'epoch':0,'advancing':False", "widget.bind('<space>',_toggle_play", "transition_progressbar=ttk.Progressbar", "d.after_idle(pump_base_widgets)"):
         assert marker in source, marker

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 from collections import OrderedDict
@@ -802,3 +803,71 @@ def _mousewheel_steps(event, linux_direction=None):
     # can report smaller values. Keep at least one visible scroll step.
     mag = max(1, abs(delta) // 120)
     return (-3 * mag) if delta > 0 else (3 * mag)
+
+
+class AngleDial(tk.Canvas):
+    """Compact Photoshop-like angle control synchronized with a Tk variable."""
+    def __init__(self, parent, variable, command=None, release_command=None,
+                 reset_value=-128.0, size=76, **kwargs):
+        super().__init__(parent, width=size, height=size, highlightthickness=0,
+                         borderwidth=0, background=kwargs.pop('background', '#f0f0f0'), **kwargs)
+        self.variable=variable; self.command=command; self.release_command=release_command
+        self.reset_value=float(reset_value); self.size=int(size); self._trace_guard=False
+        self.bind('<Button-1>', self._drag)
+        self.bind('<B1-Motion>', self._drag)
+        self.bind('<ButtonRelease-1>', self._release)
+        self.bind('<Double-Button-1>', self._reset)
+        try:self.variable.trace_add('write', lambda *a:self._draw())
+        except Exception:pass
+        self._draw()
+
+    def _angle_from_event(self,event):
+        c=self.size/2.0; dx=float(event.x)-c; dy=c-float(event.y)
+        if abs(dx)+abs(dy)<1e-6:return float(self.variable.get())
+        a=math.degrees(math.atan2(dy,dx))
+        # Keep the UI in Photoshop's familiar -180..180 range.
+        if a>180:a-=360
+        if a<=-180:a+=360
+        return float(round(a))
+
+    def _drag(self,event):
+        v=self._angle_from_event(event)
+        try:self.variable.set(v)
+        except Exception:return 'break'
+        self._draw()
+        if self.command is not None:
+            try:self.command(v)
+            except TypeError:self.command()
+        return 'break'
+
+    def _release(self,event):
+        self._drag(event)
+        if self.release_command is not None:
+            try:self.release_command(float(self.variable.get()))
+            except TypeError:self.release_command()
+        return 'break'
+
+    def _reset(self,event=None):
+        try:self.variable.set(self.reset_value)
+        except Exception:return 'break'
+        self._draw()
+        if self.release_command is not None:
+            try:self.release_command(self.reset_value)
+            except TypeError:self.release_command()
+        elif self.command is not None:
+            try:self.command(self.reset_value)
+            except TypeError:self.command()
+        return 'break'
+
+    def _draw(self):
+        try:a=math.radians(float(self.variable.get()))
+        except Exception:a=0.0
+        self.delete('all'); c=self.size/2.0; r=self.size*0.39
+        self.create_oval(c-r,c-r,c+r,c+r,fill='#dddddd',outline='#777777',width=1)
+        # Small crosshair/center, similar to Photoshop's compact direction control.
+        self.create_line(c-r+5,c,c+r-5,c,fill='#aaaaaa')
+        self.create_line(c,c-r+5,c,c+r-5,fill='#aaaaaa')
+        ex=c+math.cos(a)*r*0.72; ey=c-math.sin(a)*r*0.72
+        self.create_line(c,c,ex,ey,fill='#555555',width=2)
+        self.create_oval(ex-3,ey-3,ex+3,ey+3,fill='#777777',outline='#555555')
+        self.create_oval(c-2,c-2,c+2,c+2,fill='#666666',outline='')

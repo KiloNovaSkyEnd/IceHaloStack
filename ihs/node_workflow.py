@@ -331,3 +331,77 @@ def flow_from_payload(data,base_flow,default_cfg,default_layout,node_order=NODE_
     if not isinstance(data,dict) or data.get('format')!='IceHaloStackFlowPreset':raise ValueError('不是有效的 IceHaloStack 流程预设。')
     flow=base_flow;flow['cfg'].update(data.get('cfg',{}));flow['curves']=data.get('curves',flow['curves']);flow['base_curves']=data.get('base_curves',flow.get('base_curves',{}));flow['present_nodes']=data.get('present_nodes',flow.get('present_nodes',[key for key,_ in node_order]));flow['layout']=data.get('layout',flow.get('layout',default_layout));flow['edges']=data.get('edges',flow.get('edges',default_edges(flow.get('present_nodes',[key for key,_ in node_order]),node_order)));flow['output'].update(data.get('output',{}))
     return normalize_flow(flow,default_cfg,default_layout,node_order)
+
+
+def scale_timelapse_cfg_for_proxy(cfg, scale):
+    """Scale pixel-radius parameters so a reduced preview resembles full-resolution processing."""
+    out=dict(cfg)
+    scale=max(float(scale),1e-4)
+    out['_proxy_scale']=scale
+    for key,minimum in [('bg_radius',1.0),('usm_radius',0.1),('hp_radius',0.1),('emboss_height',0.1),('channel_noise_radius',0.1)]:
+        if key in out:
+            out[key]=max(minimum,float(out[key])*scale)
+    return out
+
+
+def apply_timelapse_pipeline(img, cfg, curve_points=None, stop_after=None):
+    """Apply the locked timelapse processing chain.
+
+    Fixed order used by the node workflow:
+    Stack → Stretch / 拉伸 → Basic / 基础 → USM / 反锐化蒙版锐化
+    → BGR / 背景+曲线（Background → Curves）
+    → High Pass / 高反差保留 → Emboss / 浮雕
+    → BR / 通道混合器（Channel Mixer） → Output / 输出
+
+    stop_after is used by the reference-frame workflow so the user can inspect
+    the result after each stage before batch rendering. Supported values:
+    stretch, basic, usm, background_curves, highpass, emboss, channel.
+    """
+    np, *_ = _deps()
+    out = img.astype(np.float32, copy=False)
+
+    if cfg.get('stretch'):
+        out = apply_asinh_stretch(out, cfg.get('stretch_strength',8.0), cfg.get('stretch_black',0.0))
+    else:
+        out = np.clip(out,0,1).astype(np.float32)
+    if stop_after == 'stretch':
+        return out
+
+    if cfg.get('basic'):
+        out = apply_base_editor(out,cfg,cfg.get('_base_curves_runtime'))
+    if stop_after == 'basic':
+        return out
+
+    if cfg.get('usm'):
+        passes=max(1,min(10,int(cfg.get('usm_passes',1))))
+        for _ in range(passes):
+            out = apply_usm(out, cfg.get('usm_amount',100.0), cfg.get('usm_radius',2.0), cfg.get('usm_threshold',0.0))
+    if stop_after == 'usm':
+        return out
+
+    if cfg.get('background'):
+        out = background_suppression(out, cfg.get('bg_radius',80.0), cfg.get('bg_strength',100.0))
+    if cfg.get('curves') and curve_points:
+        for ch in ['RGB','红色','绿色','蓝色','亮度']:
+            pts = curve_points.get(ch, [(0.0,0.0),(1.0,1.0)])
+            identity = len(pts)==2 and abs(pts[0][0])<1e-6 and abs(pts[0][1])<1e-6 and abs(pts[1][0]-1)<1e-6 and abs(pts[1][1]-1)<1e-6
+            if not identity:
+                out = apply_curve_lut(out, build_curve_lut(pts,256), ch)
+    if stop_after == 'background_curves':
+        return out
+
+    if cfg.get('highpass'):
+        out = apply_highpass(out, cfg.get('hp_radius',10.0), cfg.get('hp_amount',100.0), cfg.get('hp_mode','Overlay'))
+    if stop_after == 'highpass':
+        return out
+
+    if cfg.get('emboss'):
+        out = apply_emboss(out, cfg.get('emboss_angle',-128.0), cfg.get('emboss_height',1.0), cfg.get('emboss_amount',100.0), cfg.get('emboss_opacity',100.0), cfg.get('emboss_blend','Normal'), cfg.get('emboss_style','Photoshop Emboss'))
+    if stop_after == 'emboss':
+        return out
+
+    if cfg.get('channel'):
+        out = apply_channel_mixer(out, cfg.get('channel_output','灰色'), cfg.get('channel_mono',True),
+                                  cfg.get('channel_red',40.0), cfg.get('channel_green',40.0), cfg.get('channel_blue',20.0), cfg.get('channel_constant',0.0),
+                                  cfg.get('channel_noise',True), cfg.get('channel_noise_strength',30.0), cfg.get('channel_noise_radius',0.8))
+    return out

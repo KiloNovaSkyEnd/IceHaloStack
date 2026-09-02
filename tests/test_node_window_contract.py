@@ -17,18 +17,17 @@ from ihs.ui.node_window import TimelapseNodeWindow as ExtractedNodeWindow
 
 
 class NodeWindowContractTest(unittest.TestCase):
-    def test_legacy_binding_is_limited_to_remaining_ui_helpers(self):
-        expected = {
-            "AngleDial", "_build_ewb_panel", "_build_timelapse_memory_panel",
-            "_ewb_config_snapshot", "_ewb_enabled",
-            "_ewb_open_workspace", "_ewb_require_analysis", "_ewb_settings_dialog",
-            "_init_ewb_vars", "_init_timelapse_memory_vars",
-            "scale_timelapse_cfg_for_proxy",
+    def test_node_window_has_no_legacy_dependency_binding(self):
+        self.assertFalse(hasattr(node_window, "_LEGACY_DEPENDENCY_NAMES"))
+        self.assertFalse(hasattr(node_window, "bind_legacy_dependencies"))
+        expected_modules = {
+            "AngleDial": "ihs.ui.appearance",
+            "_build_ewb_panel": "ihs.ui.exposure_wb_window",
+            "_build_timelapse_memory_panel": "ihs.ui.performance_panel",
+            "scale_timelapse_cfg_for_proxy": "ihs.node_workflow",
         }
-        self.assertEqual(set(node_window._LEGACY_DEPENDENCY_NAMES), expected)
-        for name in expected:
-            self.assertIs(getattr(node_window, name), getattr(app, name), name)
-        self.assertFalse(hasattr(node_window, "FONT_CHOICES"))
+        for name, module in expected_modules.items():
+            self.assertEqual(getattr(node_window, name).__module__, module, name)
 
     def test_companion_class_contract(self):
         expected = {
