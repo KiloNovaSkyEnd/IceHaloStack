@@ -13,11 +13,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import icehalostack as app
+import ihs.ui.storage_window as storage_window
 
 
 class StorageWindowContractTest(unittest.TestCase):
     def test_public_class_and_method_contract(self):
         window = app.StorageManagerDialog
+        self.assertIs(window, storage_window.StorageManagerDialog)
+        self.assertEqual(window.__module__, "ihs.ui.storage_window")
         self.assertTrue(issubclass(window, tk.Toplevel))
         self.assertEqual(window.TEMP_PREFIXES, ("icehalostack", "icehalo_", "ihs_"))
         expected = {
