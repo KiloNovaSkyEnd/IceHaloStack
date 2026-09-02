@@ -164,6 +164,29 @@ class NodeWorkflowTest(unittest.TestCase):
         self.assertEqual(cache, {})
         self.assertEqual(state["bytes"], 0)
 
+    def test_preset_payload_round_trip_and_validation(self):
+        window = harness()
+        window._new_flow = lambda name: window._normalize_flow(flow(name))
+        source = window._normalize_flow(flow("Preset", 137.0))
+        source["output"].update({
+            "save_video": True, "video_format": "MOV ProRes", "fps": 25.0,
+        })
+        payload = window._preset_payload(source)
+        self.assertEqual(payload["format"], "IceHaloStackFlowPreset")
+        self.assertEqual(payload["version"], 5)
+        self.assertEqual(payload["name"], "Preset")
+        self.assertEqual(payload["cfg"]["usm_amount"], 137.0)
+        self.assertEqual(payload["output"]["video_format"], "MOV ProRes")
+        payload["cfg"]["usm_amount"] = 88.0
+        self.assertEqual(source["cfg"]["usm_amount"], 137.0)
+        loaded = window._flow_from_payload(payload)
+        self.assertEqual(loaded["name"], "Preset")
+        self.assertEqual(loaded["cfg"]["usm_amount"], 88.0)
+        self.assertEqual(loaded["output"]["fps"], 25.0)
+        self.assertTrue(loaded["output"]["delete_sequence_after_video_only"])
+        with self.assertRaisesRegex(ValueError, "不是有效"):
+            window._flow_from_payload({"format": "Other"})
+
 
 if __name__ == "__main__":
     unittest.main()
