@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "IceHaloStack.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "IceHaloStack.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

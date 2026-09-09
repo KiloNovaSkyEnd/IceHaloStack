@@ -1,5 +1,17 @@
 IceHaloStack v0.9.6.7
 
+5. 建立处理引擎与 UI 解耦的服务边界。
+   - 新增 `ihs/services/`，提供 `ImageProcessingService`、`StackService` 和 `ExportService`。
+   - 新增 `PipelineRequest`、`PreviewRequest`、`StackRequest`、`ExportRequest`、`ProgressEvent` 和线程安全的 `CancellationSource`。
+   - 服务不导入 Tkinter/Qt/WinUI；调用方负责线程调度、界面绑定和生命周期。
+   - 堆栈服务通过最小帧解码器协议接收分组，保留 mean / maximum 的增量计算行为并发出可序列化进度事件。
+   - `TimelapseWindow` 和 `NodeWindow` 批处理已将单帧处理接入 `ImageProcessingService`，原有 Tk 调度、性能监控、Shared Node DAG 和异步输出保持不变。
+   - 新增 `JsonLineHost`、`JsonServiceAdapter` 及 `process_file` / `stack_files` 协议，为 WinUI 3 子进程 IPC 预留稳定入口。
+   - IPC 新增 `AsyncJsonLineHost` / `JsonTaskManager`，支持带 `task_id` 的 `start`、progress、result 和 `cancel`；取消粒度受底层处理步骤限制，JSON-lines 进程边界固定使用 UTF-8。
+   - 新增 UI 无关的 `IpcClient`，负责子进程生命周期、`request_id` 响应匹配、任务事件队列和安全关闭；新增真实子进程闭环及取消往返测试。
+   - 新增 `winui/IceHaloStack.WinUI.Client/` C# 客户端层：封装 WinUI 3 所需的异步请求、任务取消、UTF-8 JSON-lines 和 `INotifyPropertyChanged` 进度绑定。
+   - 入口继续转发服务符号；新增服务和 IPC 行为测试。
+
 1. 修复主输出界面“单色”复选框选中后不显示勾号的问题。
    该控件改用 Windows/Tk 原生指示器，不再依赖主题切换时可能丢失状态图的自绘元素。
 
@@ -13,3 +25,18 @@ IceHaloStack v0.9.6.7
    可在一次操作中选择：当前图像、仅 USM、USM→通道混合器、USM→浮雕、
    USM→通道混合器→浮雕。各分支共享一次 USM 前缀计算，但彼此不会错误串联，
    文件使用 Current / USM / USM_Channel / USM_Emboss 等明确后缀。
+
+4. 完成 Python 结构收口。
+   - `icehalostack.py` 现在只保留兼容入口、符号转发和启动逻辑。
+   - 堆栈延时窗口移至 `ihs/ui/timelapse_window.py`；核心处理和其他窗口继续由 `ihs/` 模块承载。
+   - 新增运行时/打包依赖清单和 TimelapseWindow UI 契约测试。
+   - 在项目私有运行时中完成 50 项 unittest 和 PyInstaller 构建验证。
+WinUI 3 前端首个可运行骨架
+-----------------------------
+- 新增 `winui/IceHaloStack.WinUI/`：基于 .NET 8、Windows App SDK、CommunityToolkit.Mvvm 的 WinUI 3 工程。
+- 新增单张图像处理页面：输入/输出选择、Asinh 拉伸参数、任务进度、阶段状态、错误显示与按任务 ID 取消。
+- 新增图像堆栈页面：可选择多张图像并显示输入队列；显式建立/移除分组及每组 TIFF 32-bit Float 输出队列；可选择 mean / maximum，并通过现有 `stack_files` IPC 接口异步执行、显示阶段进度和按任务 ID 取消。
+- 堆栈页面补齐队列编辑和自动分组：输入可移除、上移、下移且分组保持对同一文件的稳定引用；新增全部图像、固定窗口、滑动窗口、中心窗口预设，以及批量输出目录、命名规则与 TIFF 路径预览。
+- 新增首个 WinUI “堆栈延时序列”页面：复用相同输入/分组/命名/取消模型，默认按滑动时间窗口批量调用 `stack_files` 导出 TIFF Master 序列；旧版处理链、参考预览与视频编码仍作为后续迁移阶段。
+- WinUI 页面通过 `IceHaloStack.WinUI.Client` 调用 Python `ihs.services.ipc`，不复制或重写现有图像算法。
+- 开发环境可通过 `ICEHALOSTACK_PYTHON` 和 `ICEHALOSTACK_ENGINE_ROOT` 显式指定 Python 解释器与引擎源码根目录。

@@ -34,6 +34,8 @@ hiddenimports += [
     'rawpy',
     'cv2',
     'imageio_ffmpeg',
+    'ihs.services.ipc',
+    'ihs.services.ipc_client',
 ]
 
 # Avoid duplicate entries while keeping order stable.

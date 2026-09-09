@@ -9,10 +9,11 @@ set "PY=%BUILDVENV%\Scripts\python.exe"
 set "RUNTIMEPY=%LOCALAPPDATA%\IceHaloStackRuntime0946\venv\Scripts\python.exe"
 set "BASEPY="
 set "BASEMODE="
-set "PKGS=numpy pillow tifffile rawpy opencv-python-headless imageio-ffmpeg pyinstaller"
+set "RUNTIME_REQ=%~dp0requirements_runtime.txt"
+set "BUILD_REQ=%~dp0requirements_build.txt"
 
 echo ============================================================
-echo IceHaloStack v0.9.6.6 - Windows Standalone EXE Builder
+echo IceHaloStack v0.9.6.7 - Windows Standalone EXE Builder
 echo Build environment: %BUILDROOT%
 echo Output: %~dp0dist\IceHaloStack\IceHaloStack.exe
 echo ============================================================
@@ -94,7 +95,7 @@ if errorlevel 1 goto :fail
 echo [1/4] Installing/updating build dependencies...
 "%PY%" -m pip install --disable-pip-version-check --upgrade pip setuptools wheel
 if errorlevel 1 goto :fail
-"%PY%" -m pip install --disable-pip-version-check %PKGS%
+"%PY%" -m pip install --disable-pip-version-check -r "%RUNTIME_REQ%" -r "%BUILD_REQ%"
 if errorlevel 1 goto :dependency_fail
 
 echo.

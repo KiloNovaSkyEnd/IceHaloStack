@@ -8,7 +8,7 @@ set "RUNTIME=%LOCALAPPDATA%\IceHaloStackRuntime0946"
 set "VENV=%RUNTIME%\venv"
 set "PY=%VENV%\Scripts\python.exe"
 set "PYW=%VENV%\Scripts\pythonw.exe"
-set "PKGS=numpy pillow tifffile rawpy opencv-python-headless imageio-ffmpeg"
+set "RUNTIME_REQ=%~dp0requirements_runtime.txt"
 
 rem ------------------------------------------------------------
 rem Fast path: if IceHaloStack's private environment already works,
@@ -61,7 +61,7 @@ if errorlevel 1 "%PY%" -m ensurepip --upgrade >nul 2>&1
 echo Installing IceHaloStack components. This is only needed on first setup...
 "%PY%" -m pip install --disable-pip-version-check --upgrade pip setuptools wheel
 if errorlevel 1 goto :setup_fail
-"%PY%" -m pip install --disable-pip-version-check %PKGS%
+"%PY%" -m pip install --disable-pip-version-check -r "%RUNTIME_REQ%"
 if errorlevel 1 goto :setup_fail
 
 "%PY%" -c "import numpy,PIL,tifffile,rawpy,cv2,imageio_ffmpeg,tkinter" >nul 2>&1

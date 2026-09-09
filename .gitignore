@@ -9,6 +9,10 @@ __pycache__/
 venv/
 .buildvenv/
 
+# WinUI client layer
+winui/**/bin/
+winui/**/obj/
+
 # Build / release
 build/
 dist/

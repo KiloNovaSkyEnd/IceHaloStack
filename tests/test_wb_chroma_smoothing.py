@@ -12,13 +12,6 @@ import icehalostack as ihs
 import ihs.exposure_wb as exposure_wb
 import ihs.image_ops as image_ops
 
-# These focused numeric tests do not decode files.  Keep them runnable in the
-# lightweight development runtime where optional TIFF/RAW packages are absent.
-ihs._deps=lambda:(np,None,None,None,None,None,None)
-exposure_wb._deps=ihs._deps
-image_ops._deps=ihs._deps
-
-
 def cfg():
     c=ihs._ewb_default_config();c.update(wb_enabled=True,wb_strength=100.0,
         wb_radius=12,wb_max_percent=50.0,smoothing_amount=80.0,
@@ -27,6 +20,25 @@ def cfg():
 
 
 def main():
+    # These focused numeric tests do not decode files. Keep the fake dependency
+    # tuple local to this script; changing it at import time leaks into the
+    # other unittest modules when discovery imports all tests in one process.
+    original_ihs_deps = ihs._deps
+    original_exposure_deps = exposure_wb._deps
+    original_image_ops_deps = image_ops._deps
+    fake_deps = lambda: (np, None, None, None, None, None, None)
+    ihs._deps = fake_deps
+    exposure_wb._deps = fake_deps
+    image_ops._deps = fake_deps
+    try:
+        _run_regression_checks()
+    finally:
+        ihs._deps = original_ihs_deps
+        exposure_wb._deps = original_exposure_deps
+        image_ops._deps = original_image_ops_deps
+
+
+def _run_regression_checks():
     # Composition changes must not be interpreted as an illuminant change.
     h=w=160;base=np.full((h,w,3),0.30,dtype=np.float32)
     yy,xx=np.indices((h,w));neutral=((xx%10)<4)

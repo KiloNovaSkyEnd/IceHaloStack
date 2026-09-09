@@ -3,6 +3,65 @@
 
 堆栈固定机位拍摄的冰晕延时，进行平均值 / 最大值堆栈、节点式处理、实时预览与延时导出。
 
+## 当前架构（v0.9.6.7）
+
+- `icehalostack.py` 只保留兼容入口、公开符号转发和程序启动。
+- `ihs/` 承载可复用的图像、堆栈、节点、曝光/WB、性能和输出核心。
+- `ihs/services/` 提供与 UI 无关的处理服务接口：图像处理/预览、分组堆栈、原子导出，以及统一的进度与取消契约。
+- `ihs/ui/` 承载主窗口、堆栈延时窗口、节点窗口、曝光/WB 工作区、外观和存储窗口。
+- `tests/` 通过核心行为测试和 UI 契约测试保护拆分过程中的既有行为。
+
+入口文件中的兼容导出是刻意保留的：旧版脚本仍可通过 `import icehalostack` 访问原有名称，新的代码应直接依赖 `ihs` 下的具体模块。
+
+### UI 解耦服务边界
+
+服务只接收普通数据、帧解码器和回调，不创建窗口、不读取 Tk 变量，也不负责线程调度。PySide6、WinUI 3 或现有 Tk 界面都可以在自己的工作线程中调用同一组服务：
+
+```python
+from ihs.services import (
+    CancellationSource, ImageProcessingService, PipelineRequest,
+    ProgressEvent, StackRequest, StackService,
+)
+
+cancel = CancellationSource()
+events: list[ProgressEvent] = []
+processor = ImageProcessingService(progress=events.append, cancellation=cancel)
+result = processor.process(PipelineRequest(image, config, curve_points=curves))
+
+stacker = StackService(progress=events.append, cancellation=cancel)
+masters = stacker.stack(StackRequest(((0, 1, 2),), method="mean"), decoder)
+```
+
+`CancellationSource`、`ProgressEvent`、`PipelineRequest`、`PreviewRequest`、`StackRequest` 和 `ExportRequest` 是跨 UI 的稳定数据契约。现有 Tk 工作区仍保留原有调度和状态管理，后续迁移可按窗口逐步替换为这些服务调用。
+
+`TimelapseWindow` 和 `NodeWindow` 的批处理已经接入 `ImageProcessingService`：Tk 线程、队列、性能监控、Shared Node DAG 和 Async Output 生命周期保持原样，单帧像素处理通过服务调用完成。`ihs.services.ipc.AsyncJsonLineHost` 提供本地 JSON-lines 子进程接口（固定 UTF-8）：每行一个请求，先立即确认 `start`，随后按 `task_id` 推送 progress/result，并持续接受 `cancel`；同步 `JsonLineHost` 仍保留给简单脚本调用。
+
+例如，WinUI 3 可发送以下请求启动一次文件处理（路径和参数均为 JSON）：
+
+```json
+{"id":1,"method":"process_file","params":{"input_path":"D:/frames/001.tif","output_path":"D:/out/001.png","config":{"stretch":true,"stretch_strength":8.0,"stretch_black":0.0},"format":"PNG 8-bit"}}
+```
+
+异步协议示例：
+
+```json
+{"id":"req-1","method":"start","params":{"task_id":"task-42","operation":"process_file","params":{"input_path":"D:/frames/001.tif","output_path":"D:/out/001.png","config":{"stretch":true}}}}
+{"id":"req-2","method":"cancel","params":{"task_id":"task-42"}}
+```
+
+任务完成或取消时会收到 `{"type":"result","task_id":"task-42",...}`。当前取消粒度受底层 NumPy/编解码步骤限制，宿主仍应允许 worker 安全退出。
+
+客户端闭环可直接使用 `ihs.services.ipc_client.IpcClient`：它负责启动子进程、匹配 `request_id`、分发任务事件，并在 `close()` 时安全回收子进程。`start_task()` 只等待启动确认，长任务通过 `wait_task(..., on_event=...)` 或 `poll_event()` 消费。
+
+```python
+from ihs.services import IpcClient
+
+with IpcClient(cwd=project_root) as client:
+    client.ping()
+    task_id = client.start_task("process_file", params, task_id="task-42")
+    result = client.wait_task(task_id, on_event=render_progress)
+```
+
 ## v0.9.6.6 Windows 异步输出文件锁修复
 
 - 序列帧使用每个任务唯一的临时文件，避免多实例或重试任务争用同一 `.ihs_tmp` 文件。
@@ -107,7 +166,14 @@
 
 ## 当前包内容
 
-- `icehalostack.py`：主程序源码
+- `icehalostack.py`：兼容入口与启动器；实际窗口实现位于 `ihs/ui/`
+- `ihs/`：应用核心、图像处理、堆栈引擎、输出管线和 Tk UI 模块
+- `ihs/services/`：UI 无关的处理、堆栈、导出服务和 JSON/IPC 适配层
+- `winui/IceHaloStack.WinUI.Client/`：WinUI 3 可引用的 C# IPC 客户端和进度绑定模型
+- `winui/IceHaloStack.WinUI/`：可编译的 WinUI 3 前端；当前包含单张处理、显式分组图像堆栈，以及基于同一分组模型的堆栈延时 TIFF 序列导出页面，均支持实时进度与按任务 ID 取消
+- `tests/`：核心行为、UI 契约和回归测试
+- `requirements_runtime.txt`：运行时依赖
+- `requirements_build.txt`：打包依赖
 - `launch_IceHaloStack.bat`：直接启动脚本
 - `build_release.bat`：一键构建 Windows EXE
 - `IceHaloStack.spec`：PyInstaller 打包配置
@@ -116,12 +182,26 @@
 
 ## 推荐仓库结构
 
-- 将本文件夹全部内容上传到 GitHub 仓库根目录。
+- 本目录是当前唯一正式源代码目录；将本文件夹全部内容上传到 GitHub 仓库根目录。
+- 根目录中的历史版本目录和旧压缩包不属于当前构建输入。
 - `dist/IceHaloStack/` 下生成的内容适合打包到 GitHub Releases。
 
 ## 本地运行
 
 双击 `launch_IceHaloStack.bat`。
+
+WinUI 3 前端预览版可在已安装 .NET 8 SDK 的环境中运行。将环境变量
+`ICEHALOSTACK_PYTHON` 指向已安装 IceHaloStack 依赖的 Python 解释器后，执行：
+
+```powershell
+dotnet run --project .\winui\IceHaloStack.WinUI\IceHaloStack.WinUI.csproj --arch x64
+```
+
+首次手动配置开发环境时，可以先安装运行时依赖：
+
+```text
+python -m pip install -r requirements_runtime.txt
+```
 
 ## 构建 Windows EXE
 

@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IceHaloStack.WinUI.Client", "IceHaloStack.WinUI.Client\IceHaloStack.WinUI.Client.csproj", "{143F0DB3-3634-4999-89E7-DF041FE74C3E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IceHaloStack.WinUI", "IceHaloStack.WinUI\IceHaloStack.WinUI.csproj", "{6068DC59-058A-43DC-82A6-841849B45C0C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{143F0DB3-3634-4999-89E7-DF041FE74C3E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{143F0DB3-3634-4999-89E7-DF041FE74C3E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{143F0DB3-3634-4999-89E7-DF041FE74C3E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{143F0DB3-3634-4999-89E7-DF041FE74C3E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6068DC59-058A-43DC-82A6-841849B45C0C}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{6068DC59-058A-43DC-82A6-841849B45C0C}.Debug|Any CPU.Build.0 = Debug|x64
+		{6068DC59-058A-43DC-82A6-841849B45C0C}.Release|Any CPU.ActiveCfg = Release|x64
+		{6068DC59-058A-43DC-82A6-841849B45C0C}.Release|Any CPU.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal

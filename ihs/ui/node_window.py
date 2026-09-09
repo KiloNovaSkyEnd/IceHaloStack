@@ -69,6 +69,7 @@ from ..stack_engine import (
     _iter_optimized_timelapse_masters, _timelapse_stack_engine_name,
     robust_luminance,
 )
+from ..services import ImageProcessingService
 
 
 class LocalNodeEditorHistory:
@@ -1789,6 +1790,9 @@ class TimelapseNodeWindow(tk.Toplevel):
             perf=PerformanceMonitor(self,engine,pol,'Node Timelapse',st.get('save_performance_report',False))
             dag_plans,dag_counts,dag_meta=self._prepare_shared_node_dag([b[1] for b in bundles]);dag_stats={'hits':0,'computes':0,'stores':0,'budget_skips':0,'peak_bytes':0,'hits_by_node':Counter(),'computes_by_node':Counter(),'reusable_by_node':dict(dag_meta.get('reusable_by_node',{}))}
             outpipe=AsyncOutputPipeline(self,pol,self.queue,'n_output',work_total)
+            # Tk remains responsible for scheduling and status updates; Shared
+            # Node DAG execution crosses the UI-independent service boundary.
+            processing_service=ImageProcessingService(cancellation=self.cancel_event)
             self.queue.put(('n_status',f'堆栈引擎：{engine} · 曝光/WB平滑 {"ON" if _ewb_enabled(self) else "OFF"} · Shared Node DAG ON · Async Output ON · Queue {outpipe.capacity} · RAM Budget {_fmt_bytes(pol.get("limit_bytes",0))} · Disk Cache OFF'))
             self.queue.put(('n_dag',f'Shared Node DAG：{dag_meta["shared_keys"]} 个共享阶段 · 每 Master 可复用 {dag_meta["reusable_uses"]} 次 · Disk Cache OFF'))
             ext={'PNG 8-bit':'.png','JPEG':'.jpg','TIFF 16-bit':'.tif','TIFF 32-bit Float':'.tif'}
@@ -1797,7 +1801,7 @@ class TimelapseNodeWindow(tk.Toplevel):
                 for bi,(idx,f,root,seq,name) in enumerate(bundles):
                     if self.cancel_event.is_set():raise InterruptedError('cancelled')
                     self.queue.put(('n_status',f'帧 {fi}/{total} · {f["name"]} · Shared DAG Hit {dag_stats["hits"]} / Compute {dag_stats["computes"]}'))
-                    out=self._execute_shared_flow(master,f,dag_plans[bi],remaining,dag_cache,cache_state,dag_stats,pol);perf.inc('processed_tasks',1);tp=time.monotonic();pct=float(f['output'].get('scale_percent',100));scaled=self._resize_float(out,pct);perf.add_stage('output_prepare',time.monotonic()-tp)
+                    out=processing_service.process_shared_flow(master,f,dag_plans[bi],remaining,dag_cache,cache_state,dag_stats,pol,performance=perf);perf.inc('processed_tasks',1);tp=time.monotonic();pct=float(f['output'].get('scale_percent',100));scaled=self._resize_float(out,pct);perf.add_stage('output_prepare',time.monotonic()-tp)
                     if f['output'].get('save_sequence'):
                         fmt=f['output'].get('sequence_format','PNG 8-bit');outpipe.submit_array(seq/f'frame_{fi:06d}{ext[fmt]}',scaled,fmt,'Balanced')
                     elif f['output'].get('save_video'):

@@ -25,6 +25,7 @@ class NodeWindowContractTest(unittest.TestCase):
             "_build_ewb_panel": "ihs.ui.exposure_wb_window",
             "_build_timelapse_memory_panel": "ihs.ui.performance_panel",
             "scale_timelapse_cfg_for_proxy": "ihs.node_workflow",
+            "ImageProcessingService": "ihs.services.processing",
         }
         for name, module in expected_modules.items():
             self.assertEqual(getattr(node_window, name).__module__, module, name)

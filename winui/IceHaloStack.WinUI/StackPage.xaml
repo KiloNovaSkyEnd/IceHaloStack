@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="IceHaloStack_WinUI.StackPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:IceHaloStack_WinUI"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Loaded="StackPage_Loaded"
+    Unloaded="StackPage_Unloaded"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <Grid Padding="32" RowSpacing="18" MaxWidth="1400" HorizontalAlignment="Center">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Content="← 返回处理页"
+                        VerticalAlignment="Top"
+                        IsEnabled="{x:Bind ViewModel.CanNavigate, Mode=OneWay}"
+                        Click="Back_Click" />
+                <StackPanel Grid.Column="1" Spacing="4">
+                    <TextBlock Text="图像堆栈" Style="{StaticResource TitleTextBlockStyle}" />
+                    <TextBlock Text="编辑输入队列、自动生成分组，并由本地 Python 引擎输出 32 位浮点 TIFF 主图。"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+
+            <InfoBar Grid.Row="1"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     IsClosable="False"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.Error, Mode=OneWay}" />
+
+            <Grid Grid.Row="2" ColumnSpacing="18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.05*" />
+                    <ColumnDefinition Width="1.55*" />
+                    <ColumnDefinition Width="0.9*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Padding="20"
+                        CornerRadius="12"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <Grid RowSpacing="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="输入队列" Style="{StaticResource SubtitleTextBlockStyle}" />
+                            <TextBlock Text="选择一项后可移除或调整顺序；勾选框仍可用于建立自定义分组。"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" ColumnSpacing="8" RowSpacing="8">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Content="添加图像…"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                    Click="PickInputs_Click" />
+                            <Button Grid.Column="1"
+                                    Content="移除所选"
+                                    IsEnabled="{x:Bind ViewModel.CanRemoveSelectedInput, Mode=OneWay}"
+                                    Click="RemoveSelectedInput_Click" />
+                            <Button Grid.Row="1"
+                                    Content="上移"
+                                    IsEnabled="{x:Bind ViewModel.CanMoveInputUp, Mode=OneWay}"
+                                    Click="MoveInputUp_Click" />
+                            <Button Grid.Row="1"
+                                    Grid.Column="1"
+                                    Content="下移"
+                                    IsEnabled="{x:Bind ViewModel.CanMoveInputDown, Mode=OneWay}"
+                                    Click="MoveInputDown_Click" />
+                        </Grid>
+
+                        <Button Grid.Row="2"
+                                HorizontalAlignment="Left"
+                                Content="从已勾选项添加自定义分组"
+                                IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                Click="AddGroup_Click" />
+
+                        <ListView Grid.Row="3"
+                                  ItemsSource="{x:Bind ViewModel.Inputs, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedInput, Mode=TwoWay}"
+                                  SelectionMode="Single"
+                                  IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                  MaxHeight="550"
+                                  MinHeight="220">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Padding="4" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox VerticalAlignment="Center"
+                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  AutomationProperties.Name="选择此图像用于自定义分组" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding Index}"
+                                                   VerticalAlignment="Center"
+                                                   Opacity="0.7" />
+                                        <StackPanel Grid.Column="2" Spacing="2">
+                                            <TextBlock Text="{Binding FileName}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Path}"
+                                                       FontSize="12"
+                                                       Opacity="0.65"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Padding="20"
+                        CornerRadius="12"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <Grid RowSpacing="14">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="分组与输出队列" Style="{StaticResource SubtitleTextBlockStyle}" />
+                            <TextBlock Text="每个分组会生成一个独立的 TIFF 32-bit Float 输出文件。"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ComboBox Header="堆栈方式"
+                                      IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                      SelectedValue="{x:Bind ViewModel.StackMethod, Mode=TwoWay}"
+                                      SelectedValuePath="Tag">
+                                <ComboBoxItem Content="平均值（mean）" Tag="mean" />
+                                <ComboBoxItem Content="最大值（maximum）" Tag="maximum" />
+                            </ComboBox>
+                            <ComboBox Grid.Column="1"
+                                      Header="自动分组预设"
+                                      ItemsSource="{x:Bind ViewModel.GroupingModes, Mode=OneWay}"
+                                      DisplayMemberPath="DisplayName"
+                                      SelectedValuePath="Value"
+                                      SelectedValue="{x:Bind ViewModel.GroupingMode, Mode=TwoWay}"
+                                      IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}" />
+                        </Grid>
+
+                        <StackPanel Grid.Row="2" Spacing="8">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <NumberBox x:Name="GroupingWindowSizeBox"
+                                           Header="窗口大小（张）"
+                                           Minimum="1"
+                                           Maximum="100000"
+                                           SmallChange="1"
+                                           SpinButtonPlacementMode="Compact"
+                                           IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                           ValueChanged="GroupingWindowSizeBox_ValueChanged" />
+                                <NumberBox x:Name="GroupingStepBox"
+                                           Grid.Column="1"
+                                           Header="滑动/中心步长（张）"
+                                           Minimum="1"
+                                           Maximum="100000"
+                                           SmallChange="1"
+                                           SpinButtonPlacementMode="Compact"
+                                           IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                           ValueChanged="GroupingStepBox_ValueChanged" />
+                                <Button Grid.Column="2"
+                                        Content="生成分组"
+                                        VerticalAlignment="Bottom"
+                                        IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                        Click="GenerateGroups_Click" />
+                            </Grid>
+                            <TextBlock Text="全部图像会建立一个分组；固定窗口使用不重叠的完整窗口；滑动窗口按步长移动；中心窗口使用相同窗口成员，但将输出标签对齐中心帧。"
+                                       FontSize="12"
+                                       Opacity="0.7"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="3" Spacing="8">
+                            <TextBlock Text="批量输出命名" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Header="输出目录"
+                                         PlaceholderText="选择所有分组的 TIFF 输出目录"
+                                         IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                         Text="{x:Bind ViewModel.OutputDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Grid.Column="1"
+                                        Content="选择目录…"
+                                        VerticalAlignment="Bottom"
+                                        IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                        Click="PickOutputDirectory_Click" />
+                            </Grid>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Header="文件命名规则"
+                                         PlaceholderText="例如 stack_{group:000}_{start:000}-{end:000}"
+                                         IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                         Text="{x:Bind ViewModel.OutputFileNamePattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Grid.Column="1"
+                                        Content="应用到全部分组"
+                                        VerticalAlignment="Bottom"
+                                        IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                        Click="ApplyOutputNaming_Click" />
+                            </Grid>
+                            <TextBlock Text="可用标记：{group}、{start}、{end}、{center}、{count}、{method}、{window}；数字可使用 :000 等格式。文件会自动保存为 .tif。"
+                                       FontSize="12"
+                                       Opacity="0.7"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{x:Bind ViewModel.OutputPathPreview, Mode=OneWay}"
+                                       FontSize="12"
+                                       Opacity="0.7"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <ListView Grid.Row="4"
+                                  ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}"
+                                  SelectionMode="None"
+                                  IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
+                                  MaxHeight="550"
+                                  MinHeight="220">
+                            <ListView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="12"
+                                            Margin="0,0,0,8"
+                                            CornerRadius="8"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel Spacing="8">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}">
+                                                    <Run Text="分组 " />
+                                                    <Run Text="{Binding GroupNumber}" />
+                                                </TextBlock>
+                                                <Button Grid.Column="1"
+                                                        Content="移除"
+                                                        Click="RemoveGroup_Click" />
+                                            </Grid>
+                                            <TextBlock Text="{Binding FrameSummary}"
+                                                       TextWrapping="Wrap"
+                                                       Opacity="0.75" />
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Header="TIFF 输出"
+                                                         IsReadOnly="True"
+                                                         PlaceholderText="选择主图保存位置"
+                                                         Text="{Binding OutputPath, Mode=OneWay}" />
+                                                <Button Grid.Column="1"
+                                                        Content="另存为…"
+                                                        VerticalAlignment="Bottom"
+                                                        Click="PickGroupOutput_Click" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Column="2"
+                        Padding="20"
+                        CornerRadius="12"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="执行状态" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                                   TextWrapping="Wrap" />
+                        <ProgressBar Minimum="0"
+                                     Maximum="100"
+                                     Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" />
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="阶段" Opacity="0.7" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{x:Bind ViewModel.Phase, Mode=OneWay}"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="进度" Opacity="0.7" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}"
+                                       HorizontalAlignment="Right" />
+                        </Grid>
+                        <StackPanel Spacing="8" Margin="0,12,0,0">
+                            <Button Content="开始堆栈"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.StartStackCommand}" />
+                            <Button Content="取消"
+                                    IsEnabled="{x:Bind ViewModel.CanCancel, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.CancelCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</Page>
