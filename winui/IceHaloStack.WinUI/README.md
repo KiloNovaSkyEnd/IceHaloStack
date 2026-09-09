@@ -41,3 +41,13 @@ JSON-lines process communication, task-ID cancellation, and bindable task
 progress. Stack progress is phase-local (`decode`, `stack`, `export`), so the
 page displays the current phase and progress instead of presenting a misleading
 single global percentage.
+
+## UI performance diagnostics
+
+Set `ICEHALOSTACK_SHOW_PERF=1` before launch to show a non-interactive overlay
+with FPS, average frame time, P95 frame time, and frames slower than 50 ms.
+Release QA can set `ICEHALOSTACK_PERF_SMOKE_PATH` to a JSON output path; the app
+then measures cold and cached navigation for the stack and timelapse pages,
+writes the report, and exits. Page lists remain inside finite viewports with
+explicit `ItemsStackPanel` virtualization, and heavyweight editors use deferred
+XAML loading.

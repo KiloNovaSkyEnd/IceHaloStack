@@ -61,6 +61,30 @@ class WinUIArchitectureTest(unittest.TestCase):
         self.assertIn("<WindowsAppSDKSelfContained", project)
         self.assertIn("<SelfContained", project)
 
+    def test_pages_keep_lists_in_a_finite_virtualized_viewport(self):
+        for page in ("MainPage.xaml", "StackPage.xaml", "TimelapsePage.xaml"):
+            text = (WINUI / page).read_text(encoding="utf-8")
+            self.assertNotRegex(text, r"<Page\b[\s\S]*?>\s*<ScrollViewer>", page)
+            self.assertIn('NavigationCacheMode="Required"', text, page)
+
+        for page in ("StackPage.xaml", "TimelapsePage.xaml"):
+            text = (WINUI / page).read_text(encoding="utf-8")
+            self.assertGreaterEqual(text.count("<ItemsStackPanel"), 2, page)
+            self.assertIn('x:DataType="viewModels:StackInputItem"', text, page)
+            self.assertIn('x:DataType="viewModels:StackGroupItem"', text, page)
+
+        timelapse = (WINUI / "TimelapsePage.xaml").read_text(encoding="utf-8")
+        self.assertIn(
+            'x:Load="{x:Bind VideoExportExpander.IsExpanded, Mode=OneWay}"',
+            timelapse,
+        )
+
+    def test_ui_performance_instrumentation_stays_in_services(self):
+        services = WINUI / "Services"
+        self.assertTrue((services / "UiPerformanceMonitor.cs").is_file())
+        self.assertTrue((services / "UiPerformanceSmokeRunner.cs").is_file())
+        self.assertTrue((services / "PageLifetimeRegistry.cs").is_file())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.IO;
+using IceHaloStack_WinUI.Services;
 using IceHaloStack_WinUI.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -13,17 +14,23 @@ namespace IceHaloStack_WinUI;
 public sealed partial class TimelapsePage : Page
 {
     private bool _initializingGroupingControls;
+    private bool _isSubscribed;
 
     public TimelapsePageViewModel ViewModel { get; } = new();
 
     public TimelapsePage()
     {
         InitializeComponent();
-        ViewModel.Workspace.PropertyChanged += OnWorkspacePropertyChanged;
+        PageLifetimeRegistry.Register(ViewModel);
     }
 
     private void TimelapsePage_Loaded(object sender, RoutedEventArgs e)
     {
+        if (!_isSubscribed)
+        {
+            ViewModel.Workspace.PropertyChanged += OnWorkspacePropertyChanged;
+            _isSubscribed = true;
+        }
         _initializingGroupingControls = true;
         try
         {
@@ -36,10 +43,12 @@ public sealed partial class TimelapsePage : Page
         }
     }
 
-    private async void TimelapsePage_Unloaded(object sender, RoutedEventArgs e)
+    private void TimelapsePage_Unloaded(object sender, RoutedEventArgs e)
     {
+        if (!_isSubscribed)
+            return;
         ViewModel.Workspace.PropertyChanged -= OnWorkspacePropertyChanged;
-        await ViewModel.DisposeAsync();
+        _isSubscribed = false;
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)

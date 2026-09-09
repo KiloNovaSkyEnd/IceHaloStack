@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using IceHaloStack_WinUI.Services;
 using IceHaloStack_WinUI.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,17 +17,23 @@ namespace IceHaloStack_WinUI;
 public sealed partial class StackPage : Page
 {
     private bool _initializingGroupingControls;
+    private bool _isSubscribed;
 
     public StackPageViewModel ViewModel { get; } = new();
 
     public StackPage()
     {
         InitializeComponent();
-        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        PageLifetimeRegistry.Register(ViewModel);
     }
 
     private void StackPage_Loaded(object sender, RoutedEventArgs e)
     {
+        if (!_isSubscribed)
+        {
+            ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            _isSubscribed = true;
+        }
         // NumberBox.Value is a double while the queue model intentionally
         // stores whole frame counts.  Seed the controls once in code-behind
         // rather than relying on a lossy two-way XAML conversion.
@@ -42,10 +49,12 @@ public sealed partial class StackPage : Page
         }
     }
 
-    private async void StackPage_Unloaded(object sender, RoutedEventArgs e)
+    private void StackPage_Unloaded(object sender, RoutedEventArgs e)
     {
+        if (!_isSubscribed)
+            return;
         ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
-        await ViewModel.DisposeAsync();
+        _isSubscribed = false;
     }
 
     private void Back_Click(object sender, RoutedEventArgs e)

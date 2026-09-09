@@ -26,5 +26,18 @@
             navigation events and the Loaded lifecycle.
         -->
         <Frame x:Name="RootFrame" Grid.Row="1" />
+
+        <Border x:Name="PerformanceOverlay"
+                Grid.Row="1"
+                Margin="12"
+                Padding="8,4"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Bottom"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                CornerRadius="6"
+                IsHitTestVisible="False"
+                Visibility="Collapsed">
+            <TextBlock x:Name="PerformanceText" FontFamily="Consolas" FontSize="11" />
+        </Border>
     </Grid>
 </Window>

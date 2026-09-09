@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using IceHaloStack_WinUI.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -50,8 +51,17 @@ public partial class App : Application
     /// <param name="args">Details about the launch request and process.</param>
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
-        Window = new MainWindow();
+        var mainWindow = new MainWindow();
+        Window = mainWindow;
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+        Window.Closed += OnWindowClosed;
         Window.Activate();
+        mainWindow.StartPerformanceSmokeIfRequested();
+    }
+
+    private static async void OnWindowClosed(object sender, WindowEventArgs args)
+    {
+        Window.Closed -= OnWindowClosed;
+        await PageLifetimeRegistry.DisposeAllAsync();
     }
 }

@@ -21,11 +21,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
-    }
-
-    private async void MainPage_Unloaded(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        await ViewModel.DisposeAsync();
+        PageLifetimeRegistry.Register(ViewModel);
     }
 
     private async void PickInput_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

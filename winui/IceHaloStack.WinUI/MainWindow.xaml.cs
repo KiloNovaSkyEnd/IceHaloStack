@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using IceHaloStack_WinUI.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -12,6 +13,8 @@ namespace IceHaloStack_WinUI;
 /// </summary>
 public sealed partial class MainWindow : Window
 {
+    private readonly UiPerformanceMonitor _performanceMonitor = new();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -22,7 +25,31 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon("Assets/AppIcon.ico");
 
         Title = "IceHaloStack v0.9.6.8 · WinUI 3";
-        // Navigate the root frame to the main page on startup.
+        _performanceMonitor.SnapshotUpdated += OnPerformanceSnapshotUpdated;
+        _performanceMonitor.Start(RootFrame);
+        Closed += OnClosed;
         RootFrame.Navigate(typeof(MainPage));
+    }
+
+    internal void StartPerformanceSmokeIfRequested()
+        => _ = UiPerformanceSmokeRunner.RunIfRequestedAsync(this, RootFrame, _performanceMonitor);
+
+    private void OnPerformanceSnapshotUpdated(UiFrameSnapshot snapshot)
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("ICEHALOSTACK_SHOW_PERF"),
+                "1",
+                StringComparison.Ordinal))
+            return;
+        PerformanceOverlay.Visibility = Visibility.Visible;
+        PerformanceText.Text = $"{snapshot.FramesPerSecond:F0} FPS · avg {snapshot.AverageMilliseconds:F1} ms · "
+            + $"P95 {snapshot.P95Milliseconds:F1} ms · hitch {snapshot.HitchCount}";
+    }
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        Closed -= OnClosed;
+        _performanceMonitor.SnapshotUpdated -= OnPerformanceSnapshotUpdated;
+        _performanceMonitor.Dispose();
     }
 }

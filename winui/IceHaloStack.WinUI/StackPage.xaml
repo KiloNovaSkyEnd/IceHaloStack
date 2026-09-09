@@ -7,16 +7,17 @@
     xmlns:controls="using:IceHaloStack_WinUI.Controls"
     xmlns:local="using:IceHaloStack_WinUI"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels"
     Loaded="StackPage_Loaded"
     Unloaded="StackPage_Unloaded"
+    NavigationCacheMode="Required"
     mc:Ignorable="d">
 
-    <ScrollViewer>
-        <Grid Padding="32" RowSpacing="18" MaxWidth="1400" HorizontalAlignment="Center">
+    <Grid Padding="32" RowSpacing="18" MaxWidth="1400" HorizontalAlignment="Stretch">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <Grid ColumnSpacing="12">
@@ -107,10 +108,14 @@
                                   SelectedItem="{x:Bind ViewModel.SelectedInput, Mode=TwoWay}"
                                   SelectionMode="Single"
                                   IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                                  MaxHeight="550"
                                   MinHeight="220">
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel ItemsUpdatingScrollMode="KeepItemsInView" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
                             <ListView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="viewModels:StackInputItem">
                                     <Grid Padding="4" ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -118,16 +123,16 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <CheckBox VerticalAlignment="Center"
-                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                  IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
                                                   AutomationProperties.Name="选择此图像用于自定义分组" />
                                         <TextBlock Grid.Column="1"
-                                                   Text="{Binding Index}"
+                                                   Text="{x:Bind Index, Mode=OneWay}"
                                                    VerticalAlignment="Center"
                                                    Opacity="0.7" />
                                         <StackPanel Grid.Column="2" Spacing="2">
-                                            <TextBlock Text="{Binding FileName}"
+                                            <TextBlock Text="{x:Bind FileName}"
                                                        TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Path}"
+                                            <TextBlock Text="{x:Bind Path}"
                                                        FontSize="12"
                                                        Opacity="0.65"
                                                        TextTrimming="CharacterEllipsis" />
@@ -263,10 +268,14 @@
                                   ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}"
                                   SelectionMode="None"
                                   IsEnabled="{x:Bind ViewModel.CanEdit, Mode=OneWay}"
-                                  MaxHeight="550"
                                   MinHeight="220">
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel ItemsUpdatingScrollMode="KeepItemsInView" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
                             <ListView.ItemTemplate>
-                                <DataTemplate>
+                                <DataTemplate x:DataType="viewModels:StackGroupItem">
                                     <Border Padding="12"
                                             Margin="0,0,0,8"
                                             CornerRadius="8"
@@ -280,13 +289,13 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}">
                                                     <Run Text="分组 " />
-                                                    <Run Text="{Binding GroupNumber}" />
+                                                    <Run Text="{x:Bind GroupNumber, Mode=OneWay}" />
                                                 </TextBlock>
                                                 <Button Grid.Column="1"
                                                         Content="移除"
                                                         Click="RemoveGroup_Click" />
                                             </Grid>
-                                            <TextBlock Text="{Binding FrameSummary}"
+                                            <TextBlock Text="{x:Bind FrameSummary, Mode=OneWay}"
                                                        TextWrapping="Wrap"
                                                        Opacity="0.75" />
                                             <Grid ColumnSpacing="8">
@@ -297,7 +306,7 @@
                                                 <TextBox Header="TIFF 输出"
                                                          IsReadOnly="True"
                                                          PlaceholderText="选择主图保存位置"
-                                                         Text="{Binding OutputPath, Mode=OneWay}" />
+                                                         Text="{x:Bind OutputPath, Mode=OneWay}" />
                                                 <Button Grid.Column="1"
                                                         Content="另存为…"
                                                         VerticalAlignment="Bottom"
@@ -362,6 +371,5 @@
                     </StackPanel>
                 </Border>
             </Grid>
-        </Grid>
-    </ScrollViewer>
+    </Grid>
 </Page>
