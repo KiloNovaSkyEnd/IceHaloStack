@@ -42,6 +42,25 @@ class WinUIArchitectureTest(unittest.TestCase):
             text = (WINUI / page).read_text(encoding="utf-8")
             self.assertIn("ProcessingSettingsControl", text, page)
 
+    def test_heavy_processing_controls_are_created_only_when_expanded(self):
+        for page in ("MainPage.xaml", "StackPage.xaml", "TimelapsePage.xaml"):
+            text = (WINUI / page).read_text(encoding="utf-8")
+            self.assertIn(
+                'x:Load="{x:Bind ProcessingExpander.IsExpanded, Mode=OneWay}"',
+                text,
+                page,
+            )
+
+        control = (WINUI / "Controls" / "ProcessingSettingsControl.xaml").read_text(encoding="utf-8")
+        self.assertIn('x:Load="{x:Bind IsExpanded, Mode=OneWay}"', control)
+        window = (WINUI / "MainWindow.xaml").read_text(encoding="utf-8")
+        self.assertNotIn("<MicaBackdrop", window)
+
+    def test_release_is_self_contained(self):
+        project = (WINUI / "IceHaloStack.WinUI.csproj").read_text(encoding="utf-8")
+        self.assertIn("<WindowsAppSDKSelfContained", project)
+        self.assertIn("<SelfContained", project)
+
 
 if __name__ == "__main__":
     unittest.main()

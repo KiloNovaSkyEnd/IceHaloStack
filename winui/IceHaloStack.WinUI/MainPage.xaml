@@ -95,8 +95,10 @@
                                     Click="PickOutput_Click" />
                         </Grid>
 
-                        <Expander Header="完整处理方案" IsExpanded="False">
-                            <ScrollViewer MaxHeight="620">
+                        <Expander x:Name="ProcessingExpander" Header="完整处理方案" IsExpanded="False">
+                            <ScrollViewer x:Name="DeferredProcessingPanel"
+                                          x:Load="{x:Bind ProcessingExpander.IsExpanded, Mode=OneWay}"
+                                          MaxHeight="620">
                                 <controls:ProcessingSettingsControl ViewModel="{x:Bind ViewModel.Processing, Mode=OneWay}" />
                             </ScrollViewer>
                         </Expander>

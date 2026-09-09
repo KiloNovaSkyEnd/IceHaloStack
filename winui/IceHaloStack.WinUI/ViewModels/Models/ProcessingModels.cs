@@ -29,7 +29,7 @@ public sealed partial class ProcessingParameter : ObservableObject
     public void Reset() => Value = DefaultValue;
 }
 
-public sealed class ProcessingSection
+public sealed partial class ProcessingSection : ObservableObject
 {
     public ProcessingSection(string title, params ProcessingParameter[] parameters)
     {
@@ -39,4 +39,7 @@ public sealed class ProcessingSection
 
     public string Title { get; }
     public ObservableCollection<ProcessingParameter> Parameters { get; }
+
+    [ObservableProperty]
+    private bool _isExpanded;
 }

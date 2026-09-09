@@ -2,7 +2,8 @@
 <UserControl
     x:Class="IceHaloStack_WinUI.Controls.ProcessingSettingsControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels">
     <StackPanel x:Name="Root" Spacing="10">
         <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>
@@ -17,17 +18,21 @@
 
         <ItemsControl ItemsSource="{Binding Sections}">
             <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Expander Header="{Binding Title}" Margin="0,0,0,6">
-                        <ItemsControl ItemsSource="{Binding Parameters}">
+                <DataTemplate x:DataType="viewModels:ProcessingSection">
+                    <Expander Header="{x:Bind Title}"
+                              IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                              Margin="0,0,0,6">
+                        <ItemsControl x:Name="DeferredParameters"
+                                      x:Load="{x:Bind IsExpanded, Mode=OneWay}"
+                                      ItemsSource="{x:Bind Parameters}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <NumberBox Header="{Binding Label}"
-                                               Minimum="{Binding Minimum}"
-                                               Maximum="{Binding Maximum}"
-                                               SmallChange="{Binding Step}"
+                                <DataTemplate x:DataType="viewModels:ProcessingParameter">
+                                    <NumberBox Header="{x:Bind Label}"
+                                               Minimum="{x:Bind Minimum}"
+                                               Maximum="{x:Bind Maximum}"
+                                               SmallChange="{x:Bind Step}"
                                                SpinButtonPlacementMode="Compact"
-                                               Value="{Binding Value, Mode=TwoWay}" />
+                                               Value="{x:Bind Value, Mode=TwoWay}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
