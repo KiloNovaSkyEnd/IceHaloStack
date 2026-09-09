@@ -3,11 +3,11 @@
 
 堆栈固定机位拍摄的冰晕延时，进行平均值 / 最大值堆栈、节点式处理、实时预览与延时导出。
 
-## 当前架构（v0.9.6.7）
+## 当前架构（v0.9.6.8）
 
 - `icehalostack.py` 只保留兼容入口、公开符号转发和程序启动。
 - `ihs/` 承载可复用的图像、堆栈、节点、曝光/WB、性能和输出核心。
-- `ihs/services/` 提供与 UI 无关的处理服务接口：图像处理/预览、分组堆栈、原子导出，以及统一的进度与取消契约。
+- `ihs/services/` 提供与 UI 无关的处理服务接口：图像处理/预览、分组堆栈、原子图像导出、无磁盘帧缓存的视频编码，以及统一的进度与取消契约。
 - `ihs/ui/` 承载主窗口、堆栈延时窗口、节点窗口、曝光/WB 工作区、外观和存储窗口。
 - `tests/` 通过核心行为测试和 UI 契约测试保护拆分过程中的既有行为。
 
@@ -32,7 +32,17 @@ stacker = StackService(progress=events.append, cancellation=cancel)
 masters = stacker.stack(StackRequest(((0, 1, 2),), method="mean"), decoder)
 ```
 
-`CancellationSource`、`ProgressEvent`、`PipelineRequest`、`PreviewRequest`、`StackRequest` 和 `ExportRequest` 是跨 UI 的稳定数据契约。现有 Tk 工作区仍保留原有调度和状态管理，后续迁移可按窗口逐步替换为这些服务调用。
+`CancellationSource`、`ProgressEvent`、`PipelineRequest`、`PreviewRequest`、`StackRequest`、`ExportRequest` 和 `VideoExportRequest` 是跨 UI 的稳定数据契约。现有 Tk 工作区仍保留原有调度和状态管理，WinUI 按页面逐步复用这些服务。
+
+## v0.9.6.8 WinUI 处理链、视频导出与架构防回退
+
+- 修复 WinUI 堆栈模型在 ViewModel 和独立模型文件中重复声明导致的编译失败。
+- WinUI 单图、普通堆栈和堆栈延时共享一套完整固定处理链参数，覆盖 Stretch、Basic、WB、Presence、HSL、颜色混合器、色彩分级、Detail、Optics、Calibration、USM、Background、Curves、High Pass、Emboss 和 Channel Mixer。
+- `stack_files` IPC 在堆栈后调用规范 Python 处理服务，不在 C# 中复制图像算法。
+- 堆栈延时新增 MP4 H.264、MOV H.264、MOV ProRes 和 GIF 编码；最终帧通过 FFmpeg stdin 直接传输，不建立视频帧磁盘缓存。
+- WinUI 优先发现 IceHaloStack 私有 Python 运行时；无需额外配置即可连接包含完整依赖的引擎。
+- 尚未原生迁移的节点图、曝光/白平衡关键帧、存储管理等功能可从 WinUI 一键打开完整经典工作区，功能不会在迁移期丢失。
+- `StackPageViewModel` 按状态、队列、输出命名和引擎任务拆分；处理参数、视频参数、控件模型和启动器各自独立，新增架构测试阻止重复类型和巨型 WinUI ViewModel 回归。
 
 `TimelapseWindow` 和 `NodeWindow` 的批处理已经接入 `ImageProcessingService`：Tk 线程、队列、性能监控、Shared Node DAG 和 Async Output 生命周期保持原样，单帧像素处理通过服务调用完成。`ihs.services.ipc.AsyncJsonLineHost` 提供本地 JSON-lines 子进程接口（固定 UTF-8）：每行一个请求，先立即确认 `start`，随后按 `task_id` 推送 progress/result，并持续接受 `cancel`；同步 `JsonLineHost` 仍保留给简单脚本调用。
 

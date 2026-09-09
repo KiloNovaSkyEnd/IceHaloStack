@@ -130,3 +130,17 @@ class ExportRequest:
     image: Any
     format: str = "PNG 8-bit"
     png_compression: str = "Balanced"
+
+
+@dataclass(frozen=True)
+class VideoExportRequest:
+    """Request for encoding processed RGB frames without a disk-frame cache."""
+
+    path: PathLike
+    frames: Sequence[Any]
+    format: str = "MP4 H.264"
+    fps: float = 24.0
+    resolution: str = "原始分辨率"
+    custom_width: int = 1920
+    custom_height: int = 1080
+    fit_mode: str = "Fill 裁切"

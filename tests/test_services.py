@@ -24,6 +24,8 @@ from ihs.services import (
     ServiceCancelled,
     StackRequest,
     StackService,
+    VideoExportRequest,
+    VideoExportService,
 )
 from ihs.image_io import read_linear_rgb, srgb_to_linear
 from ihs.node_workflow import apply_timelapse_pipeline
@@ -127,6 +129,19 @@ class ServicesTest(unittest.TestCase):
             np.testing.assert_allclose(read_linear_rgb(target), expected, rtol=0, atol=1e-7)
             self.assertFalse(list(Path(folder).glob("*.ihs_tmp.*")))
         self.assertEqual([event.phase for event in events], ["export", "export"])
+
+    def test_video_export_service_streams_frames_without_sequence_cache(self):
+        events = []
+        with tempfile.TemporaryDirectory(prefix="ihs_video_service_") as folder:
+            target = Path(folder) / "preview.mp4"
+            result = VideoExportService(progress=events.append).save(
+                VideoExportRequest(target, [self.image, self.image * 0.8], fps=12)
+            )
+            self.assertEqual(result, target)
+            self.assertGreater(target.stat().st_size, 0)
+            self.assertFalse(list(Path(folder).glob("*.ihs_tmp.*")))
+        self.assertEqual(events[-1].phase, "video")
+        self.assertEqual(events[-1].fraction, 1.0)
 
     def test_services_package_does_not_import_ui_modules(self):
         import ihs.services as services

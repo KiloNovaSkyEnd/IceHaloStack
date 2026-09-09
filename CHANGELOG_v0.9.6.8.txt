@@ -1,0 +1,9 @@
+IceHaloStack v0.9.6.8
+
+1. 修复 WinUI 模型重复定义，恢复完整解决方案构建。
+2. 单图、普通堆栈和堆栈延时共享完整固定处理链参数；算法继续由 Python 规范引擎执行。
+3. stack_files IPC 支持堆栈后处理和曲线参数，并保留任务级进度与取消。
+4. 新增独立 VideoExportService：MP4 H.264、MOV H.264、MOV ProRes、GIF 通过 FFmpeg stdin 编码，不创建视频帧磁盘缓存。
+5. WinUI 自动优先使用 IceHaloStack 私有 Python 运行时，并提供完整经典工作区入口，迁移期不丢失节点图、关键帧平滑和存储管理功能。
+6. StackPageViewModel 拆分为状态、队列、命名和引擎任务文件；处理、视频、控件模型和启动器独立维护。
+7. 新增 WinUI 架构防回退测试；完整 Python 回归为 76 项，WinUI Debug/Release 构建均要求 0 错误。

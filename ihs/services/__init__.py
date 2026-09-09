@@ -13,6 +13,7 @@ from .contracts import (
     CancellationSource,
     CancellationToken,
     ExportRequest,
+    VideoExportRequest,
     FrameProvider,
     PipelineRequest,
     PreviewRequest,
@@ -22,6 +23,7 @@ from .contracts import (
     ServiceError,
     StackRequest,
 )
+from .video_exporting import VideoExportService
 from .processing import ImageProcessingService
 from .stacking import StackService
 from .exporting import ExportService
@@ -76,6 +78,7 @@ __all__ = [
     "CancellationSource",
     "CancellationToken",
     "ExportRequest",
+    "VideoExportRequest",
     "FrameProvider",
     "ImageProcessingService",
     "PipelineRequest",
@@ -87,6 +90,7 @@ __all__ = [
     "StackRequest",
     "StackService",
     "ExportService",
+    "VideoExportService",
     "JsonLineHost",
     "AsyncJsonLineHost",
     "JsonProtocolError",

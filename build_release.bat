@@ -13,7 +13,7 @@ set "RUNTIME_REQ=%~dp0requirements_runtime.txt"
 set "BUILD_REQ=%~dp0requirements_build.txt"
 
 echo ============================================================
-echo IceHaloStack v0.9.6.7 - Windows Standalone EXE Builder
+echo IceHaloStack v0.9.6.8 - Windows Standalone EXE Builder
 echo Build environment: %BUILDROOT%
 echo Output: %~dp0dist\IceHaloStack\IceHaloStack.exe
 echo ============================================================

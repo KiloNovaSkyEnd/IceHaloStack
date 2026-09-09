@@ -26,10 +26,12 @@ from .contracts import (
     ServiceCancelled,
     ServiceError,
     StackRequest,
+    VideoExportRequest,
 )
 from .exporting import ExportService
 from .processing import ImageProcessingService
 from .stacking import StackService
+from .video_exporting import VideoExportService
 
 
 class JsonProtocolError(ServiceError):
@@ -166,6 +168,8 @@ class JsonServiceAdapter:
         inputs = params.get("input_paths")
         output_paths = params.get("output_paths")
         groups = params.get("groups")
+        config = params.get("config", {})
+        curves = params.get("curve_points")
         if not isinstance(inputs, list) or not inputs or not all(isinstance(item, (str, Path)) for item in inputs):
             raise JsonProtocolError("stack_files.input_paths 必须是非空路径数组。")
         if not isinstance(groups, list) or not groups:
@@ -181,6 +185,10 @@ class JsonServiceAdapter:
             raise JsonProtocolError("output_paths 数量必须与 groups 一致。")
         if not all(isinstance(path, (str, Path)) for path in output_paths):
             raise JsonProtocolError("stack_files.output_paths 必须是路径数组。")
+        if not isinstance(config, Mapping):
+            raise JsonProtocolError("stack_files.config 必须是 JSON 对象。")
+        if curves is not None and not isinstance(curves, Mapping):
+            raise JsonProtocolError("stack_files.curve_points 必须是 JSON 对象。")
         processor = ImageProcessingService(progress=self._emit, cancellation=self.cancellation)
         frames = [processor.load(path) for path in inputs]
 
@@ -195,15 +203,40 @@ class JsonServiceAdapter:
             StackRequest(groups, str(params.get("method", "mean"))),
             decode,
         )
+        processed = [
+            processor.process(PipelineRequest(master, config, curves))
+            for master in masters
+        ]
         exporter = ExportService(progress=self._emit, cancellation=self.cancellation)
         saved = [
             exporter.save(ExportRequest(path, image, str(params.get("format", "PNG 8-bit"))))
-            for path, image in zip(output_paths, masters)
+            for path, image in zip(output_paths, processed)
         ]
-        return {
+        result = {
             "output_paths": [str(path) for path in saved],
             "count": len(saved),
         }
+        video = params.get("video")
+        if video is not None:
+            if not isinstance(video, Mapping):
+                raise JsonProtocolError("stack_files.video 必须是 JSON 对象。")
+            video_path = video.get("output_path")
+            if not isinstance(video_path, (str, Path)):
+                raise JsonProtocolError("stack_files.video.output_path 不能为空。")
+            encoded = VideoExportService(progress=self._emit, cancellation=self.cancellation).save(
+                VideoExportRequest(
+                    path=video_path,
+                    frames=processed,
+                    format=str(video.get("format", "MP4 H.264")),
+                    fps=float(video.get("fps", 24.0)),
+                    resolution=str(video.get("resolution", "原始分辨率")),
+                    custom_width=int(video.get("custom_width", 1920)),
+                    custom_height=int(video.get("custom_height", 1080)),
+                    fit_mode=str(video.get("fit_mode", "Fill 裁切")),
+                )
+            )
+            result["video_path"] = str(encoded)
+        return result
 
 
 @dataclass

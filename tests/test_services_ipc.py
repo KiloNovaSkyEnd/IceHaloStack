@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from ihs.image_io import read_linear_rgb, save_tiff, srgb_to_linear
+from ihs.image_ops import apply_asinh_stretch
 from ihs.services import (
     AsyncJsonLineHost,
     IpcClient,
@@ -103,6 +104,39 @@ class ServicesIPCTest(unittest.TestCase):
             )
             self.assertEqual(result["count"], 1)
             np.testing.assert_allclose(read_linear_rgb(targets[0]), self.image * 1.5, rtol=0, atol=0)
+
+    def test_stack_files_applies_the_shared_processing_pipeline(self):
+        with tempfile.TemporaryDirectory(prefix="ihs_ipc_stack_pipeline_") as folder:
+            root = Path(folder)
+            sources = [root / "a.tif", root / "b.tif"]
+            target = root / "master.tif"
+            save_tiff(sources[0], self.image, float32=True)
+            save_tiff(sources[1], self.image, float32=True)
+            result = JsonServiceAdapter().dispatch(
+                {
+                    "id": "stack-pipeline",
+                    "method": "stack_files",
+                    "params": {
+                        "input_paths": [str(path) for path in sources],
+                        "groups": [[0, 1]],
+                        "output_paths": [str(target)],
+                        "method": "mean",
+                        "format": "TIFF 32-bit Float",
+                        "config": {
+                            "stretch": True,
+                            "stretch_strength": 2.0,
+                            "stretch_black": 0.0,
+                        },
+                    },
+                }
+            )
+            self.assertEqual(result["count"], 1)
+            np.testing.assert_allclose(
+                read_linear_rgb(target),
+                apply_asinh_stretch(self.image, 2.0, 0.0),
+                rtol=0,
+                atol=2e-6,
+            )
 
     def test_json_line_host_returns_protocol_error(self):
         output_stream = io.StringIO()

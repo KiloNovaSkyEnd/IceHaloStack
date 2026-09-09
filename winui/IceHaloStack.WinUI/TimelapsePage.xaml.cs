@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.IO;
 using IceHaloStack_WinUI.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -103,6 +105,32 @@ public sealed partial class TimelapsePage : Page
 
     private void ApplyOutputNaming_Click(object sender, RoutedEventArgs e)
         => ViewModel.Workspace.ApplyOutputNaming();
+
+    private async void PickVideoOutput_Click(object sender, RoutedEventArgs e)
+    {
+        var video = ViewModel.Workspace.Video;
+        var picker = new FileSavePicker
+        {
+            SuggestedStartLocation = PickerLocationId.VideosLibrary,
+            SuggestedFileName = "IceHaloStack-timelapse",
+        };
+        picker.FileTypeChoices.Add("MP4 H.264", new List<string> { ".mp4" });
+        picker.FileTypeChoices.Add("MOV", new List<string> { ".mov" });
+        picker.FileTypeChoices.Add("GIF", new List<string> { ".gif" });
+        InitializeWithWindow.Initialize(picker, App.WindowHandle);
+        var file = await picker.PickSaveFileAsync();
+        if (file is null)
+            return;
+        video.OutputPath = file.Path;
+        video.Format = Path.GetExtension(file.Path).ToLowerInvariant() switch
+        {
+            ".mov" when video.Format == "MOV ProRes" => "MOV ProRes",
+            ".mov" => "MOV H.264",
+            ".gif" => "GIF",
+            _ => "MP4 H.264",
+        };
+        video.Enabled = true;
+    }
 
     private void OnWorkspacePropertyChanged(object? sender, PropertyChangedEventArgs args)
     {

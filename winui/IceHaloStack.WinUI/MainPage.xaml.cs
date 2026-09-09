@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 using IceHaloStack_WinUI.ViewModels;
+using IceHaloStack_WinUI.Services;
 using System.Collections.Generic;
 using System.IO;
 using Windows.Storage.Pickers;
@@ -59,6 +60,25 @@ public sealed partial class MainPage : Page
 
     private void OpenStackPage_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => Frame.Navigate(typeof(StackPage));
+
+    private async void OpenClassicWorkspace_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        try
+        {
+            ClassicWorkspaceLauncher.Launch();
+        }
+        catch (Exception exception)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "无法打开完整经典工作区",
+                Content = exception.Message,
+                CloseButtonText = "确定",
+                XamlRoot = XamlRoot,
+            };
+            await dialog.ShowAsync();
+        }
+    }
 
     private void OpenTimelapsePage_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => Frame.Navigate(typeof(TimelapsePage));

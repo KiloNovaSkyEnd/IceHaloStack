@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="IceHaloStack_WinUI.Controls.ProcessingSettingsControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel x:Name="Root" Spacing="10">
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="统一处理方案" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <Button Grid.Column="1" Content="全部复位" Command="{Binding ResetCommand}" />
+        </Grid>
+        <TextBlock Text="参数由 Python 规范引擎执行；单图、堆栈和延时共享同一模型。"
+                   TextWrapping="Wrap" Opacity="0.7" FontSize="12" />
+
+        <ItemsControl ItemsSource="{Binding Sections}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Expander Header="{Binding Title}" Margin="0,0,0,6">
+                        <ItemsControl ItemsSource="{Binding Parameters}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <NumberBox Header="{Binding Label}"
+                                               Minimum="{Binding Minimum}"
+                                               Maximum="{Binding Maximum}"
+                                               SmallChange="{Binding Step}"
+                                               SpinButtonPlacementMode="Compact"
+                                               Value="{Binding Value, Mode=TwoWay}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="启用处理阶段" Style="{StaticResource BodyStrongTextBlockStyle}" />
+        <StackPanel Spacing="4">
+            <ToggleSwitch Header="Stretch" IsOn="{Binding EnableStretch, Mode=TwoWay}" />
+            <ToggleSwitch Header="Basic" IsOn="{Binding EnableBasic, Mode=TwoWay}" />
+            <ToggleSwitch Header="USM" IsOn="{Binding EnableUsm, Mode=TwoWay}" />
+            <ToggleSwitch Header="Background" IsOn="{Binding EnableBackground, Mode=TwoWay}" />
+            <ToggleSwitch Header="Curves" IsOn="{Binding EnableCurves, Mode=TwoWay}" />
+            <ToggleSwitch Header="High Pass" IsOn="{Binding EnableHighPass, Mode=TwoWay}" />
+            <ToggleSwitch Header="Emboss" IsOn="{Binding EnableEmboss, Mode=TwoWay}" />
+            <ToggleSwitch Header="Channel Mixer" IsOn="{Binding EnableChannelMixer, Mode=TwoWay}" />
+        </StackPanel>
+
+        <ComboBox Header="High Pass 模式" ItemsSource="{Binding HighPassModes}"
+                  SelectedItem="{Binding HighPassMode, Mode=TwoWay}" />
+        <ComboBox Header="浮雕类型" ItemsSource="{Binding EmbossStyles}"
+                  SelectedItem="{Binding EmbossStyle, Mode=TwoWay}" />
+        <ComboBox Header="浮雕混合模式" ItemsSource="{Binding EmbossBlendModes}"
+                  SelectedItem="{Binding EmbossBlendMode, Mode=TwoWay}" />
+        <ComboBox Header="通道输出" ItemsSource="{Binding ChannelOutputs}"
+                  SelectedItem="{Binding ChannelOutput, Mode=TwoWay}" />
+        <ToggleSwitch Header="通道混合器单色模式" IsOn="{Binding ChannelMonochrome, Mode=TwoWay}" />
+        <ToggleSwitch Header="通道色彩噪声保护" IsOn="{Binding ChannelNoiseProtection, Mode=TwoWay}" />
+    </StackPanel>
+</UserControl>

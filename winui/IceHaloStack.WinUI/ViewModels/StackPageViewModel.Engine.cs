@@ -1,93 +1,61 @@
 using System.ComponentModel;
 using System.Text.Json;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IceHaloStack.WinUI.Client;
 using IceHaloStack_WinUI.Services;
 
 namespace IceHaloStack_WinUI.ViewModels;
 
-/// <summary>
-/// UI state for the first WinUI migration page: a single image-processing
-/// request sent to the Python engine through the local IPC client.
-/// </summary>
-public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposable
+public sealed partial class StackPageViewModel
 {
-    private IpcClient? _client;
-    private IpcTaskViewModel? _task;
-    private bool _disposed;
-
-    [ObservableProperty]
-    private string _inputPath = string.Empty;
-
-    [ObservableProperty]
-    private string _outputPath = string.Empty;
-
-    public ProcessingSettingsViewModel Processing { get; } = new();
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private bool _canCancel;
-
-    [ObservableProperty]
-    private double _progressPercent;
-
-    [ObservableProperty]
-    private string _phase = "准备就绪";
-
-    [ObservableProperty]
-    private string _status = "请选择输入图像和 PNG 输出位置。";
-
-    [ObservableProperty]
-    private string _error = string.Empty;
-
-    [ObservableProperty]
-    private bool _hasError;
-
-    public bool CanStart => !IsBusy && HasValidPaths();
-
-    /// <summary>Keep page navigation from disposing an active engine task.</summary>
-    public bool CanNavigate => !IsBusy;
-
     [RelayCommand(CanExecute = nameof(CanStart))]
-    private async Task StartProcessingAsync()
+    private async Task StartStackAsync()
     {
-        if (!CanStart || _disposed)
+        if (_disposed)
             return;
+        var validationError = GetRequestValidationError();
+        if (validationError is not null)
+        {
+            ShowError(validationError);
+            Status = "请修正堆栈队列后再开始。";
+            RefreshCommandAvailability();
+            return;
+        }
 
         ClearError();
         IsBusy = true;
         CanCancel = false;
         ProgressPercent = 0.0;
         Phase = "连接";
-        Status = "正在连接 Python 图像处理引擎…";
-        RefreshCommandAvailability();
+        Status = "正在连接 Python 图像堆栈引擎…";
+        RefreshWorkspaceState();
 
         try
         {
-            var client = await GetClientAsync();
+            var client = await GetClientAsync().ConfigureAwait(false);
             DetachTask();
             var task = new IpcTaskViewModel(
                 client,
-                $"winui-{Guid.NewGuid():N}",
+                $"winui-stack-{Guid.NewGuid():N}",
                 DispatchToUiAsync);
             task.PropertyChanged += OnTaskPropertyChanged;
             _task = task;
 
-            await task.StartAsync(
-                "process_file",
-                new Dictionary<string, object?>
-                {
-                    ["input_path"] = InputPath,
-                    ["output_path"] = OutputPath,
-                    ["config"] = Processing.ToIpcConfig(),
-                    ["curve_points"] = Processing.ToCurvePoints(),
-                    ["format"] = "PNG 8-bit",
-                });
+            var parameters = new Dictionary<string, object?>
+            {
+                ["input_paths"] = Inputs.Select(item => item.Path).ToArray(),
+                ["groups"] = Groups.Select(group => group.FrameIndexes.ToArray()).ToArray(),
+                ["output_paths"] = Groups.Select(group => group.OutputPath).ToArray(),
+                ["method"] = StackMethod,
+                ["format"] = "TIFF 32-bit Float",
+                ["config"] = Processing.ToIpcConfig(),
+                ["curve_points"] = Processing.ToCurvePoints(),
+            };
+            if (Video.Enabled)
+                parameters["video"] = Video.ToIpcRequest();
+            await task.StartAsync("stack_files", parameters).ConfigureAwait(false);
 
-            RefreshFromTask(task);
+            await DispatchToUiAsync(() => RefreshFromTask(task)).ConfigureAwait(false);
             _ = ObserveTerminalResultAsync(client, task);
         }
         catch (Exception exception)
@@ -97,9 +65,9 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
                 IsBusy = false;
                 CanCancel = false;
                 Phase = "失败";
-                Status = "无法提交处理任务。";
+                Status = "无法提交堆栈任务。";
                 ShowError(exception.Message);
-                RefreshCommandAvailability();
+                RefreshWorkspaceState();
             }).ConfigureAwait(false);
         }
     }
@@ -109,7 +77,6 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
     {
         if (_task is null || !CanCancel)
             return;
-
         try
         {
             await _task.CancelAsync().ConfigureAwait(false);
@@ -131,7 +98,12 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
         if (_disposed)
             return;
         _disposed = true;
+        Video.PropertyChanged -= OnVideoPropertyChanged;
         DetachTask();
+        foreach (var input in Inputs)
+            input.PropertyChanged -= OnInputPropertyChanged;
+        foreach (var group in Groups)
+            group.PropertyChanged -= OnGroupPropertyChanged;
         if (_client is not null)
         {
             await _client.DisposeAsync().ConfigureAwait(false);
@@ -139,20 +111,10 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
         }
     }
 
-    partial void OnInputPathChanged(string value) => RefreshCommandAvailability();
-    partial void OnOutputPathChanged(string value) => RefreshCommandAvailability();
-    partial void OnIsBusyChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanNavigate));
-        RefreshCommandAvailability();
-    }
-    partial void OnCanCancelChanged(bool value) => RefreshCommandAvailability();
-
     private async Task<IpcClient> GetClientAsync()
     {
         if (_client is { IsAlive: true })
             return _client;
-
         if (_client is not null)
         {
             await _client.DisposeAsync().ConfigureAwait(false);
@@ -194,15 +156,15 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
                 {
                     ClearError();
                     Phase = "已取消";
-                    Status = "处理任务已取消。";
+                    Status = "堆栈任务已取消。";
                 }
                 else
                 {
                     Phase = "失败";
-                    Status = "Python 引擎报告任务失败。";
+                    Status = "Python 引擎报告堆栈任务失败。";
                     ShowError(result.Error ?? "未返回错误详情。");
                 }
-                RefreshCommandAvailability();
+                RefreshWorkspaceState();
             }).ConfigureAwait(false);
         }
         catch (Exception exception)
@@ -214,9 +176,9 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
                 IsBusy = false;
                 CanCancel = false;
                 Phase = "失败";
-                Status = "与 Python 图像处理引擎的连接已中断。";
+                Status = "与 Python 图像堆栈引擎的连接已中断。";
                 ShowError(exception.Message);
-                RefreshCommandAvailability();
+                RefreshWorkspaceState();
             }).ConfigureAwait(false);
         }
     }
@@ -244,11 +206,27 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
     private static string DescribeSuccess(IpcTaskResult result)
     {
         if (result.Result is { } payload
-            && payload.TryGetProperty("output_path", out var path)
-            && path.ValueKind == JsonValueKind.String
-            && !string.IsNullOrWhiteSpace(path.GetString()))
-            return $"处理完成：{path.GetString()}";
-        return "处理完成。";
+            && payload.TryGetProperty("output_paths", out var paths)
+            && paths.ValueKind == JsonValueKind.Array)
+        {
+            var saved = paths.EnumerateArray()
+                .Where(path => path.ValueKind == JsonValueKind.String)
+                .Select(path => path.GetString())
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .ToArray();
+            var video = payload.TryGetProperty("video_path", out var videoPath)
+                && videoPath.ValueKind == JsonValueKind.String
+                ? videoPath.GetString()
+                : null;
+            var summary = saved.Length switch
+            {
+                0 => "堆栈完成。",
+                1 => $"堆栈完成：{saved[0]}",
+                _ => $"已完成 {saved.Length} 个堆栈输出。",
+            };
+            return string.IsNullOrWhiteSpace(video) ? summary : $"{summary} 视频：{video}";
+        }
+        return "堆栈完成。";
     }
 
     private static Task DispatchToUiAsync(Action action)
@@ -272,36 +250,6 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
         return completion.Task;
     }
 
-    private bool HasValidPaths()
-    {
-        if (string.IsNullOrWhiteSpace(InputPath) || string.IsNullOrWhiteSpace(OutputPath))
-            return false;
-        try
-        {
-            var outputDirectory = Path.GetDirectoryName(Path.GetFullPath(OutputPath));
-            return File.Exists(InputPath)
-                && string.Equals(Path.GetExtension(OutputPath), ".png", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(outputDirectory)
-                && Directory.Exists(outputDirectory);
-        }
-        catch (Exception)
-        {
-            return false;
-        }
-    }
-
-    private void ShowError(string message)
-    {
-        Error = message;
-        HasError = !string.IsNullOrWhiteSpace(message);
-    }
-
-    private void ClearError()
-    {
-        Error = string.Empty;
-        HasError = false;
-    }
-
     private void DetachTask()
     {
         if (_task is null)
@@ -309,11 +257,5 @@ public sealed partial class MainPageViewModel : ObservableObject, IAsyncDisposab
         _task.PropertyChanged -= OnTaskPropertyChanged;
         _task.Dispose();
         _task = null;
-    }
-
-    private void RefreshCommandAvailability()
-    {
-        StartProcessingCommand.NotifyCanExecuteChanged();
-        CancelCommand.NotifyCanExecuteChanged();
     }
 }

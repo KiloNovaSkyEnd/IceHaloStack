@@ -16,9 +16,7 @@ internal static class EngineClientFactory
     public static IpcClient CreateDevelopmentClient()
     {
         var engineRoot = FindEngineRoot();
-        var python = Environment.GetEnvironmentVariable(PythonEnvironmentVariable);
-        if (string.IsNullOrWhiteSpace(python))
-            python = "python";
+        var python = ResolvePython(windowless: false);
 
         return new IpcClient(
             executable: python,
@@ -27,7 +25,22 @@ internal static class EngineClientFactory
             requestTimeout: TimeSpan.FromSeconds(30));
     }
 
-    private static string FindEngineRoot()
+    internal static string ResolvePython(bool windowless)
+    {
+        var configured = Environment.GetEnvironmentVariable(PythonEnvironmentVariable);
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var scripts = Path.Combine(localAppData, "IceHaloStackRuntime0946", "venv", "Scripts");
+        var preferred = Path.Combine(scripts, windowless ? "pythonw.exe" : "python.exe");
+        if (File.Exists(preferred))
+            return preferred;
+        var fallback = Path.Combine(scripts, "python.exe");
+        return File.Exists(fallback) ? fallback : "python";
+    }
+
+    internal static string FindEngineRoot()
     {
         var configured = Environment.GetEnvironmentVariable(EngineRootEnvironmentVariable);
         if (!string.IsNullOrWhiteSpace(configured))

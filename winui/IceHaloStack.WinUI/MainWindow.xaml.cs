@@ -21,7 +21,7 @@ public sealed partial class MainWindow : Window
 
         AppWindow.SetIcon("Assets/AppIcon.ico");
 
-        Title = "IceHaloStack · WinUI 3";
+        Title = "IceHaloStack v0.9.6.8 · WinUI 3";
         // Navigate the root frame to the main page on startup.
         RootFrame.Navigate(typeof(MainPage));
     }
