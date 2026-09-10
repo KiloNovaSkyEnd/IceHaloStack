@@ -19,11 +19,13 @@ from .appearance import (
     AngleDial, _enforce_regular_typography, _make_vertical_scroll_area,
     _mousewheel_steps, _translate_flow_list_item, _ui_font,
 )
+from .batch_control_state import sync_batch_controls
 from .exposure_wb_window import (
     _build_ewb_panel, _ewb_config_snapshot, _ewb_enabled, _ewb_open_workspace,
     _ewb_require_analysis, _ewb_settings_dialog, _init_ewb_vars,
 )
 from .performance_panel import _build_timelapse_memory_panel, _init_timelapse_memory_vars
+from .resize_scheduler import TkResizeScheduler
 from ..constants import APP_NAME, VERSION
 from ..dependencies import _deps, get_ffmpeg_executable
 from ..exposure_wb import _ewb_apply_to_frame
@@ -618,7 +620,7 @@ class TimelapseNodeWindow(tk.Toplevel):
     NODE_ORDER=_NODE_WORKFLOW_ORDER
     def __init__(self,app):
         super().__init__(app);self.app=app
-        self.title(f'{APP_NAME} · 节点堆栈延时 / Node Stack Timelapse v{VERSION}')
+        self.title(f'{APP_NAME} · 经典 Tk 节点堆栈延时 / Legacy Node Stack Timelapse v{VERSION}')
         self.geometry('1580x900');self.minsize(1180,720)
         self.queue=Queue();self.worker=None;self.cancel_event=threading.Event();self.preview_photo=None
         self.reference_master=None;self.reference_proxy_drag=None;self.reference_proxy_drag_scale=1.0;self.reference_proxy_fast=None;self.reference_proxy_fast_scale=1.0;self.reference_proxy_hq=None;self.reference_proxy_hq_scale=1.0
@@ -638,6 +640,7 @@ class TimelapseNodeWindow(tk.Toplevel):
         self.normalize.set(False)
         self.graph_zoom=1.0;self.node_drag=None;self.link_preview=None;self.graph_context_pos=(0,0);self.wb_pick_context=None;self.last_preview_image=None;self.preview_display_rect=None
         self.workflow_undo=[];self.workflow_redo=[];self.workflow_history_limit=80
+        self.resize_scheduler=TkResizeScheduler(self)
         self.flows=[self._new_flow('流程 1')];self.selected_flow=tk.IntVar(value=0);self.node_hits=[]
         self._build_ui();_enforce_regular_typography(self);self.after_idle(lambda: _enforce_regular_typography(self));self._bind_workflow_history_keys(self);self._update_summary();self._refresh_flow_list();self.after(80,self._poll)
 
@@ -793,7 +796,7 @@ class TimelapseNodeWindow(tk.Toplevel):
         self.node_canvas.bind('<Button-4>',lambda e:self._graph_wheel_linux(e,1))
         self.node_canvas.bind('<Button-5>',lambda e:self._graph_wheel_linux(e,-1))
         self.node_canvas.bind('<Button-3>',self._graph_context_menu)
-        self.node_canvas.bind('<Configure>',lambda e:self._draw_graph())
+        self.node_canvas.bind('<Configure>',lambda e:self.resize_scheduler.request('graph',60,self._draw_graph))
         ttk.Button(center,text='节点画布操作…',command=self._show_node_canvas_help).pack(anchor='e',pady=(4,0))
         # preview
         pv=ttk.LabelFrame(right,text='当前流程实时预览 / Live Preview',padding=5);pv.pack(fill='both',expand=True);self.preview_frame=pv
@@ -810,7 +813,9 @@ class TimelapseNodeWindow(tk.Toplevel):
         self.preview_canvas.pack(fill='both',expand=True,pady=(5,0))
         self.preview_canvas.create_text(18,18,anchor='nw',fill='#9a9a9a',text='生成参考堆栈后，这里会显示当前流程的实时预览。',tags='placeholder')
         self.preview_zoom=1.0; self.preview_fit_mode=True; self.preview_pan=[0.0,0.0]; self.preview_pan_anchor=None; self.last_preview_image=None; self.preview_display_rect=None
-        self.preview_canvas.bind('<Configure>',lambda e:self._schedule_preview())
+        # Resizing only changes presentation geometry. Re-running every image
+        # processing node here caused a worker storm while the window was dragged.
+        self.preview_canvas.bind('<Configure>',lambda e:self.resize_scheduler.request('preview',100,self._preview_redraw))
         self.preview_canvas.bind('<MouseWheel>',self._preview_zoom_wheel)
         self.preview_canvas.bind('<Button-4>',lambda e:self._preview_zoom_wheel_linux(e,1))
         self.preview_canvas.bind('<Button-5>',lambda e:self._preview_zoom_wheel_linux(e,-1))
@@ -1435,6 +1440,10 @@ class TimelapseNodeWindow(tk.Toplevel):
         if not dragging:self._draw_graph()
         self._schedule_preview(dragging=dragging,force=force)
 
+    def _ewb_reference_invalidated(self):
+        """Node exports do not require the display-only reference master."""
+        sync_batch_controls(self)
+
     def _groups(self):
         n=len(self.app.files);step=max(1,int(self.step.get() or 1));mode=self.mode.get()
         if n<1:return []
@@ -1602,7 +1611,7 @@ class TimelapseNodeWindow(tk.Toplevel):
                 out=self._apply_flow_pipeline_preview_cached(base,tf,q,token=token,stop_node=active_stop)
                 if out is None:self.queue.put(('n_preview_cancelled',(token,name,q)))
                 else:self.queue.put(('n_preview',(token,out,name,q)))
-            except Exception as e:self.queue.put(('n_error',str(e)+'\n\n'+traceback.format_exc(limit=3)))
+            except Exception as e:self.queue.put(('n_preview_status',(token,name,q,'预览失败：'+str(e))))
         threading.Thread(target=work,daemon=True).start()
     def _preview_current_scale(self):
         img=getattr(self,'last_preview_image',None)
@@ -1909,4 +1918,5 @@ class TimelapseNodeWindow(tk.Toplevel):
                 elif kind=='n_error':
                     elapsed=self._stop_elapsed_timer();self.preview_running=False;self.preview_interactive_running=False;self.preview_hq_running=False;self.preview_pending=False;self.start_btn.configure(state='normal');self.cancel_btn.configure(state='disabled');self.output_pipeline_text.set('写入：失败/已停止');self.status.set(f'处理失败 · 已运行 {elapsed}');messagebox.showerror(APP_NAME,val+'\n\n运行时间：'+elapsed,parent=self)
         except Empty:pass
+        sync_batch_controls(self)
         if self.winfo_exists():self.after(80,self._poll)

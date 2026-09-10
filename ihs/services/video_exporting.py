@@ -10,11 +10,12 @@ from ..dependencies import get_ffmpeg_executable
 from ..image_io import prepare_video_frame
 from .contracts import ProgressCallback, ProgressEvent, ServiceCancelled, ServiceError, VideoExportRequest
 from .processing import _cancelled
+from ..video_encoding import h264_encode_args
 
 
 _FORMAT_ARGS = {
-    "MP4 H.264": (".mp4", ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p"]),
-    "MOV H.264": (".mov", ["-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p"]),
+    "MP4 H.264": (".mp4", None),
+    "MOV H.264": (".mov", None),
     "MOV ProRes": (".mov", ["-c:v", "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le"]),
     "GIF": (".gif", ["-vf", "fps=15", "-loop", "0"]),
 }
@@ -45,6 +46,8 @@ class VideoExportService:
             raise ServiceError("视频帧率必须大于 0。")
 
         suffix, codec_args = _FORMAT_ARGS[request.format]
+        if codec_args is None:
+            codec_args = h264_encode_args(request.fps)
         path = Path(request.path).expanduser().resolve()
         if path.suffix.lower() != suffix:
             raise ServiceError(f"{request.format} 输出必须使用 {suffix} 扩展名。")

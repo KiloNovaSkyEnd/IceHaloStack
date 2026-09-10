@@ -15,16 +15,17 @@ from .image_io import (
     save_timelapse_sequence_frame_atomic,
 )
 from .performance import _GIB, _MIB
+from .video_encoding import h264_encode_args
 
 
 def _build_ffmpeg_video_plan(ffmpeg, fmt, fps, pattern, output_root, base_name, sequence_dir):
-    """Build the exact v0.9.6.7 FFmpeg commands for one video output."""
+    """Build a deterministic, desktop-compatible FFmpeg plan for one output."""
     root=Path(output_root);sequence=Path(sequence_dir)
     common=[ffmpeg,'-y','-framerate',str(fps),'-i',str(pattern)];palette_command=None
     if fmt=='MP4 H.264':
-        video_path=root/f'{base_name}.mp4';command=common+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
+        video_path=root/f'{base_name}.mp4';command=common+h264_encode_args(fps)+[str(video_path)]
     elif fmt=='MOV H.264':
-        video_path=root/f'{base_name}.mov';command=common+_ffmpeg_even_pad_args()+['-c:v','libx264','-preset','medium','-crf','18','-pix_fmt','yuv420p',str(video_path)]
+        video_path=root/f'{base_name}.mov';command=common+h264_encode_args(fps)+[str(video_path)]
     elif fmt=='MOV ProRes':
         video_path=root/f'{base_name}_ProRes.mov';command=common+_ffmpeg_even_pad_args()+['-c:v','prores_ks','-profile:v','3','-pix_fmt','yuv422p10le',str(video_path)]
     elif fmt=='GIF':
@@ -220,4 +221,3 @@ class AsyncOutputPipeline:
             except Exception:pass
         if getattr(self.owner,'_active_output_pipeline',None) is self:self.owner._active_output_pipeline=None
         gc.collect()
-

@@ -28,7 +28,7 @@
                                Style="{StaticResource BodyTextBlockStyle}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Content="完整经典工作区"
+                    <Button Content="经典 Tk 工作区（兼容入口）"
                             IsEnabled="{x:Bind ViewModel.CanNavigate, Mode=OneWay}"
                             Click="OpenClassicWorkspace_Click" />
                     <Button Content="图像堆栈"

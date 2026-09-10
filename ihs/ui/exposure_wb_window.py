@@ -161,8 +161,11 @@ def _ewb_invalidate(owner, reason='设置已改变', analysis=False, preserve_ro
         if owner.reference_master is not None:
             owner.reference_master=None
             if hasattr(owner,'preview_title'):owner.preview_title.set('曝光/白平衡平滑设置已改变，请重新生成参考堆栈')
-            if hasattr(owner,'pipeline_locked'):owner.pipeline_locked=False
-            if hasattr(owner,'start_btn'):owner.start_btn.configure(state='disabled')
+            hook=getattr(owner,'_ewb_reference_invalidated',None)
+            if callable(hook):hook()
+            else:
+                if hasattr(owner,'pipeline_locked'):owner.pipeline_locked=False
+                if hasattr(owner,'start_btn'):owner.start_btn.configure(state='disabled')
     except Exception:pass
     try:
         if hasattr(owner,'_draw_graph'):owner._draw_graph()
