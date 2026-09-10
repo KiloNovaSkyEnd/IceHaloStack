@@ -15,6 +15,15 @@ internal static class EngineClientFactory
 
     public static IpcClient CreateDevelopmentClient()
     {
+        var packagedEngine = Path.Combine(AppContext.BaseDirectory, "Engine", "IceHaloStackEngine.exe");
+        if (File.Exists(packagedEngine))
+        {
+            return new IpcClient(
+                executable: packagedEngine,
+                arguments: Array.Empty<string>(),
+                workingDirectory: Path.GetDirectoryName(packagedEngine)!,
+                requestTimeout: TimeSpan.FromSeconds(30));
+        }
         var engineRoot = FindEngineRoot();
         var python = ResolvePython(windowless: false);
 

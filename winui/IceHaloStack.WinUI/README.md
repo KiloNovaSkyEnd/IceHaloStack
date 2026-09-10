@@ -1,4 +1,4 @@
-# IceHaloStack v0.9.6.8 WinUI 3 front-end
+# IceHaloStack v0.9.6.8a WinUI 3 front-end
 
 This is the native C# front-end for the canonical Python image engine. It contains three service-backed pages:
 

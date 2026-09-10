@@ -31,6 +31,8 @@ from .contracts import (
 from .exporting import ExportService
 from .processing import ImageProcessingService
 from .stacking import StackService
+from .stack_acceleration import inspect_backends
+from .native_workspaces import ExposureSmoothingService, NodeWorkflowService, StorageInspectionService
 from .video_exporting import VideoExportService
 
 
@@ -117,8 +119,20 @@ class JsonServiceAdapter:
             return {
                 "protocol": self.PROTOCOL,
                 "version": VERSION,
-                "capabilities": ["ping", "process_file", "stack_files"],
+                "capabilities": ["ping", "compute_capabilities", "process_file", "stack_files",
+                                 "node_workflow_inspect", "ewb_build_corrections", "storage_inspect"],
             }
+        if request.method == "compute_capabilities":
+            return inspect_backends(refresh=bool(request.params.get("refresh", False)))
+        if request.method == "node_workflow_inspect":
+            return NodeWorkflowService().inspect(request.params.get("flow", {}))
+        if request.method == "ewb_build_corrections":
+            return ExposureSmoothingService().build(request.params)
+        if request.method == "storage_inspect":
+            paths = request.params.get("paths", [])
+            if not isinstance(paths, list):
+                raise JsonProtocolError("storage_inspect.paths 必须是数组。")
+            return StorageInspectionService().inspect(paths)
         if request.method == "process_file":
             return self._process_file(request.params)
         if request.method == "stack_files":
@@ -199,34 +213,40 @@ class JsonServiceAdapter:
                 raise JsonProtocolError(f"堆栈帧索引无效：{index!r}。") from exc
 
         stacker = StackService(progress=self._emit, cancellation=self.cancellation)
-        masters = stacker.stack(
-            StackRequest(groups, str(params.get("method", "mean"))),
+        exporter = ExportService(progress=self._emit, cancellation=self.cancellation)
+        video = params.get("video")
+        if video is not None and not isinstance(video, Mapping):
+            raise JsonProtocolError("stack_files.video 必须是 JSON 对象。")
+        video_frames = [] if video is not None else None
+        saved = []
+        masters = stacker.iter_masters(
+            StackRequest(
+                groups,
+                str(params.get("method", "mean")),
+                backend=str(params.get("backend", "auto")),
+            ),
             decode,
         )
-        processed = [
-            processor.process(PipelineRequest(master, config, curves))
-            for master in masters
-        ]
-        exporter = ExportService(progress=self._emit, cancellation=self.cancellation)
-        saved = [
-            exporter.save(ExportRequest(path, image, str(params.get("format", "PNG 8-bit"))))
-            for path, image in zip(output_paths, processed)
-        ]
+        for path, master in zip(output_paths, masters):
+            image = processor.process(PipelineRequest(master, config, curves))
+            saved.append(exporter.save(
+                ExportRequest(path, image, str(params.get("format", "PNG 8-bit")))
+            ))
+            if video_frames is not None:
+                video_frames.append(image)
         result = {
             "output_paths": [str(path) for path in saved],
             "count": len(saved),
+            "backend": stacker.backend_info.to_dict(),
         }
-        video = params.get("video")
         if video is not None:
-            if not isinstance(video, Mapping):
-                raise JsonProtocolError("stack_files.video 必须是 JSON 对象。")
             video_path = video.get("output_path")
             if not isinstance(video_path, (str, Path)):
                 raise JsonProtocolError("stack_files.video.output_path 不能为空。")
             encoded = VideoExportService(progress=self._emit, cancellation=self.cancellation).save(
                 VideoExportRequest(
                     path=video_path,
-                    frames=processed,
+                    frames=video_frames or [],
                     format=str(video.get("format", "MP4 H.264")),
                     fps=float(video.get("fps", 24.0)),
                     resolution=str(video.get("resolution", "原始分辨率")),
@@ -469,6 +489,8 @@ class AsyncJsonLineHost(JsonLineHost):
                 result = JsonServiceAdapter().dispatch(request)
                 result["async_task_protocol"] = "start-cancel-v1"
                 return JsonResponse(request_id, True, result)
+            if request.method == "compute_capabilities":
+                return JsonResponse(request_id, True, JsonServiceAdapter().dispatch(request))
             raise JsonProtocolError("异步主机只接受 start、cancel 和 ping。")
         except Exception as exc:
             return JsonResponse(request_id, False, error=str(exc))

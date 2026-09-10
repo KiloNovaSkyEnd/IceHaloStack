@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace IceHaloStack_WinUI.ViewModels;
 
@@ -46,6 +47,12 @@ public sealed partial class StackInputItem : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    private BitmapImage? _thumbnail;
+
+    [ObservableProperty]
+    private bool _isThumbnailLoading;
+
     partial void OnSourceIndexChanged(int value) => OnPropertyChanged(nameof(Index));
 }
 
@@ -65,6 +72,7 @@ public sealed partial class StackGroupItem : ObservableObject
         StackGroupingMode? originMode = null)
     {
         GroupNumber = groupNumber;
+        MaterialName = $"素材_{groupNumber:000}";
         OriginMode = originMode;
         _inputIds = inputIds.Distinct().ToList();
         Remap(indexLookup);
@@ -75,6 +83,10 @@ public sealed partial class StackGroupItem : ObservableObject
 
     [ObservableProperty]
     private string _outputPath = string.Empty;
+
+    /// <summary>User-owned label used to distinguish different material sets.</summary>
+    [ObservableProperty]
+    private string _materialName = string.Empty;
 
     [ObservableProperty]
     private string _frameSummary = string.Empty;

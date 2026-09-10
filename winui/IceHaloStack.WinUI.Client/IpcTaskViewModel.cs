@@ -12,6 +12,7 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
 {
     private readonly IpcClient _client;
     private readonly Func<Action, Task>? _dispatchToUi;
+    private readonly ProgressUpdateCoalescer<IpcProgressEvent> _progressUpdates;
     private IpcTaskState _state = IpcTaskState.Starting;
     private string _phase = string.Empty;
     private string _message = string.Empty;
@@ -32,6 +33,7 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
             throw new ArgumentException("task_id 不能为空。", nameof(taskId));
         TaskId = taskId.Trim();
         _dispatchToUi = dispatchToUi;
+        _progressUpdates = new ProgressUpdateCoalescer<IpcProgressEvent>(ApplyProgress);
         _client.ProgressReceived += OnProgressReceived;
         _client.TaskCompleted += OnTaskCompleted;
         _client.TransportError += OnTransportError;
@@ -199,6 +201,7 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
         _client.ProgressReceived -= OnProgressReceived;
         _client.TaskCompleted -= OnTaskCompleted;
         _client.TransportError -= OnTransportError;
+        _progressUpdates.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -206,6 +209,11 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!string.Equals(progress.TaskId, TaskId, StringComparison.Ordinal))
             return;
+        _progressUpdates.Submit(progress);
+    }
+
+    private void ApplyProgress(IpcProgressEvent progress)
+    {
         PostToUi(() =>
         {
             State = IpcTaskState.Running;
@@ -221,6 +229,7 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
     {
         if (!string.Equals(result.TaskId, TaskId, StringComparison.Ordinal))
             return;
+        _progressUpdates.Flush();
         PostToUi(() => ApplyTerminal(result));
     }
 

@@ -115,47 +115,6 @@ public sealed partial class ProcessingSettingsViewModel : ObservableObject
     [ObservableProperty] private string _embossBlendMode = "Normal";
     [ObservableProperty] private string _channelOutput = "灰色";
 
-    public Dictionary<string, object?> ToIpcConfig()
-    {
-        var config = Sections
-            .SelectMany(section => section.Parameters)
-            .Where(parameter => parameter.Key != "curve_contrast")
-            .ToDictionary(parameter => parameter.Key, parameter => (object?)parameter.Value, StringComparer.Ordinal);
-        config["stretch"] = EnableStretch;
-        config["basic"] = EnableBasic;
-        config["usm"] = EnableUsm;
-        config["background"] = EnableBackground;
-        config["curves"] = EnableCurves;
-        config["highpass"] = EnableHighPass;
-        config["emboss"] = EnableEmboss;
-        config["channel"] = EnableChannelMixer;
-        config["bgr"] = EnableBackground || EnableCurves;
-        config["br"] = EnableChannelMixer;
-        config["hp_mode"] = HighPassMode;
-        config["emboss_style"] = EmbossStyle;
-        config["emboss_blend"] = EmbossBlendMode;
-        config["channel_output"] = ChannelOutput;
-        config["channel_mono"] = ChannelMonochrome;
-        config["channel_noise"] = ChannelNoiseProtection;
-        return config;
-    }
-
-    public Dictionary<string, object?> ToCurvePoints()
-    {
-        var contrast = Find("curve_contrast").Value / 100.0;
-        var shadow = Math.Clamp(0.25 - contrast * 0.18, 0.0, 1.0);
-        var highlight = Math.Clamp(0.75 + contrast * 0.18, 0.0, 1.0);
-        var identity = new[] { new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 } };
-        return new Dictionary<string, object?>
-        {
-            ["RGB"] = new[] { new[] { 0.0, 0.0 }, new[] { 0.25, shadow }, new[] { 0.75, highlight }, new[] { 1.0, 1.0 } },
-            ["红色"] = identity,
-            ["绿色"] = identity,
-            ["蓝色"] = identity,
-            ["亮度"] = identity,
-        };
-    }
-
     [RelayCommand]
     private void Reset()
     {

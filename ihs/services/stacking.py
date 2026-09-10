@@ -15,6 +15,7 @@ from .contracts import (
     ServiceCancelled,
     StackRequest,
 )
+from .stack_acceleration import StackAccumulator, StackBackendInfo, select_backend
 
 
 def _is_cancelled(token: CancellationToken | None) -> bool:
@@ -72,6 +73,7 @@ class StackService:
     ):
         self.progress = progress
         self.cancellation = cancellation
+        self.backend_info = StackBackendInfo("auto", "cpu", True, "尚未选择")
 
     def _emit(self, event: ProgressEvent) -> None:
         if self.progress is not None:
@@ -89,12 +91,14 @@ class StackService:
         groups = tuple(tuple(group) for group in request.groups)
         total = len(groups)
         np, *_ = _deps()
+        self.backend_info, cupy_module = select_backend(request.backend)
         for group_index, group in enumerate(groups, 1):
             self._check_cancelled()
             if not group:
                 raise ValueError(f"第 {group_index} 个堆栈分组为空。")
-            master = None
-            for frame_count, index in enumerate(group, 1):
+            accumulator = StackAccumulator(method, self.backend_info, cupy_module)
+            expected_shape = None
+            for index in group:
                 self._check_cancelled()
                 image = np.asarray(
                     _decode(provider, int(index), request.reference_luminance),
@@ -102,16 +106,14 @@ class StackService:
                 )
                 if image.ndim != 3 or image.shape[-1] != 3:
                     raise ValueError(f"帧 {index} 不是 H×W×3 RGB 数据：{image.shape}。")
-                if master is None:
-                    master = image.copy()
-                elif image.shape != master.shape:
+                if expected_shape is None:
+                    expected_shape = image.shape
+                elif image.shape != expected_shape:
                     raise ValueError(
-                        f"堆栈分组中的帧尺寸不一致：{master.shape} 与 {image.shape}。"
+                        f"堆栈分组中的帧尺寸不一致：{expected_shape} 与 {image.shape}。"
                     )
-                elif method == "maximum":
-                    np.maximum(master, image, out=master)
-                else:
-                    master += (image - master) / float(frame_count)
+                accumulator.add(image)
+            master = accumulator.finish()
             self._check_cancelled()
             self._emit(
                 ProgressEvent(
@@ -119,7 +121,11 @@ class StackService:
                     group_index,
                     total,
                     f"完成堆栈 {group_index}/{total}",
-                    {"group_index": group_index - 1, "frame_count": len(group)},
+                    {
+                        "group_index": group_index - 1,
+                        "frame_count": len(group),
+                        "backend": self.backend_info.to_dict(),
+                    },
                 )
             )
             yield master.astype(np.float32, copy=False)

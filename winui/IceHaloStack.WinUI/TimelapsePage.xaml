@@ -81,6 +81,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Button Content="添加图像…"
                                     Style="{StaticResource AccentButtonStyle}"
@@ -117,12 +118,18 @@
                                     <Grid Padding="4" ColumnSpacing="8">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind Index, Mode=OneWay}"
                                                    VerticalAlignment="Center"
                                                    Opacity="0.7" />
-                                        <StackPanel Grid.Column="1" Spacing="2">
+                                        <Border Grid.Column="1" Width="56" Height="42" CornerRadius="4"
+                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}"
+                                                   Stretch="UniformToFill" Loaded="InputThumbnail_Loaded" />
+                                        </Border>
+                                        <StackPanel Grid.Column="2" Spacing="2">
                                             <TextBlock Text="{x:Bind FileName}"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{x:Bind Path}"
@@ -177,6 +184,19 @@
                                       SelectedValuePath="Value"
                                       SelectedValue="{x:Bind ViewModel.Workspace.GroupingMode, Mode=TwoWay}"
                                       IsEnabled="{x:Bind ViewModel.Workspace.CanEdit, Mode=OneWay}" />
+                            <StackPanel Grid.Column="2" Spacing="4">
+                                <ComboBox Header="计算后端"
+                                          ItemsSource="{x:Bind ViewModel.Workspace.Compute.Options, Mode=OneWay}"
+                                          DisplayMemberPath="DisplayName"
+                                          SelectedValuePath="Value"
+                                          SelectedValue="{x:Bind ViewModel.Workspace.Compute.SelectedBackend, Mode=TwoWay}"
+                                          IsEnabled="{x:Bind ViewModel.Workspace.CanEdit, Mode=OneWay}" />
+                                <Button Content="重新自检 GPU"
+                                        Command="{x:Bind ViewModel.Workspace.RefreshComputeCommand}"
+                                        IsEnabled="{x:Bind ViewModel.Workspace.CanEdit, Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ViewModel.Workspace.Compute.Status, Mode=OneWay}"
+                                           FontSize="11" Opacity="0.7" TextWrapping="Wrap" />
+                            </StackPanel>
                         </Grid>
 
                         <StackPanel Grid.Row="2" Spacing="8">
@@ -238,7 +258,7 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox Header="文件命名规则"
-                                         PlaceholderText="例如 timelapse_{center:000.##}"
+                                         PlaceholderText="例如 timelapse_{material}_{center:000.##}"
                                          IsEnabled="{x:Bind ViewModel.Workspace.CanEdit, Mode=OneWay}"
                                          Text="{x:Bind ViewModel.Workspace.OutputFileNamePattern, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                 <Button Grid.Column="1"
@@ -247,7 +267,7 @@
                                         IsEnabled="{x:Bind ViewModel.Workspace.CanEdit, Mode=OneWay}"
                                         Click="ApplyOutputNaming_Click" />
                             </Grid>
-                            <TextBlock Text="可用标记：{group}、{start}、{end}、{center}、{count}、{method}、{window}；自动追加 .tif。"
+                            <TextBlock Text="可用标记：{material}/{name}、{group}、{start}、{end}、{center}、{count}、{method}、{window}；自动追加 .tif。"
                                        FontSize="12"
                                        Opacity="0.7"
                                        TextWrapping="Wrap" />
@@ -283,6 +303,8 @@
                                             <TextBlock Text="{x:Bind FrameSummary, Mode=OneWay}"
                                                        TextWrapping="Wrap"
                                                        Opacity="0.75" />
+                                            <TextBox Header="素材名称（用于区分同一天不同素材）"
+                                                     Text="{x:Bind MaterialName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                                             <TextBox Header="TIFF 输出"
                                                      IsReadOnly="True"
                                                      PlaceholderText="先选择目录并应用命名规则"

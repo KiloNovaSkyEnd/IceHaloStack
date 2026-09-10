@@ -10,6 +10,17 @@ internal static class ClassicWorkspaceLauncher
 {
     public static void Launch()
     {
+        var packagedClassic = Path.Combine(AppContext.BaseDirectory, "Classic", "IceHaloStack.exe");
+        if (File.Exists(packagedClassic))
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = packagedClassic,
+                WorkingDirectory = Path.GetDirectoryName(packagedClassic)!,
+                UseShellExecute = false,
+            })?.Dispose();
+            return;
+        }
         var root = EngineClientFactory.FindEngineRoot();
         var entryPoint = Path.Combine(root, "icehalostack.py");
         if (!File.Exists(entryPoint))

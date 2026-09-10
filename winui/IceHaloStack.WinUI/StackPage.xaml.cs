@@ -34,6 +34,7 @@ public sealed partial class StackPage : Page
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
             _isSubscribed = true;
         }
+        ViewModel.EnsureComputeProbeStarted();
         // NumberBox.Value is a double while the queue model intentionally
         // stores whole frame counts.  Seed the controls once in code-behind
         // rather than relying on a lossy two-way XAML conversion.
@@ -47,6 +48,12 @@ public sealed partial class StackPage : Page
         {
             _initializingGroupingControls = false;
         }
+    }
+
+    private async void InputThumbnail_Loaded(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is StackInputItem item)
+            await ViewModel.EnsureThumbnailAsync(item);
     }
 
     private void StackPage_Unloaded(object sender, RoutedEventArgs e)

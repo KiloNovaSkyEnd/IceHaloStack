@@ -1,0 +1,12 @@
+IceHaloStack v0.9.6.8a
+
+- Fixed neutral Base adjustments being serialized and processed during Stack/Timelapse exports.
+- Added CPU, GPU and automatic mean-stack backends with a real CUDA self-test and safe CPU fallback.
+- Replaced CPU online-mean math with float32 sum plus one final division.
+- Added editable per-group material names and {material}/{name} batch-output tokens.
+- Added visible-row asynchronous thumbnail decoding and coalesced progress updates.
+- Added Python service boundaries for node workflows, exposure/WB keyframe smoothing and storage inspection.
+- Added a self-contained WinUI distribution containing the frozen IPC engine, CUDA runtime and classic workspace.
+- Preserved page reuse, virtualized lists, deferred control trees and the ICEHALOSTACK_SHOW_PERF=1 overlay.
+
+Release note: v0.9.6.8 remains unchanged; this release uses the new v0.9.6.8a tag.

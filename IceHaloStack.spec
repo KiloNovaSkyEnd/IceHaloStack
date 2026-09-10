@@ -9,11 +9,6 @@ hiddenimports = []
 
 # Packages used dynamically by IceHaloStack and/or carrying native DLL/data files.
 for package in (
-    'numpy',
-    'PIL',
-    'tifffile',
-    'rawpy',
-    'cv2',
     'imageio_ffmpeg',
 ):
     try:
@@ -67,7 +62,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         'matplotlib', 'pandas', 'scipy', 'IPython', 'jupyter',
-        'pytest', 'setuptools.tests',
+        'pytest', 'setuptools.tests', 'cupy', 'cupyx', 'cupy_backends',
     ],
     noarchive=False,
     optimize=1,

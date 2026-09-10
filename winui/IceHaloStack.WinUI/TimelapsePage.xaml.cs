@@ -31,6 +31,7 @@ public sealed partial class TimelapsePage : Page
             ViewModel.Workspace.PropertyChanged += OnWorkspacePropertyChanged;
             _isSubscribed = true;
         }
+        ViewModel.Workspace.EnsureComputeProbeStarted();
         _initializingGroupingControls = true;
         try
         {
@@ -41,6 +42,12 @@ public sealed partial class TimelapsePage : Page
         {
             _initializingGroupingControls = false;
         }
+    }
+
+    private async void InputThumbnail_Loaded(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is StackInputItem item)
+            await ViewModel.Workspace.EnsureThumbnailAsync(item);
     }
 
     private void TimelapsePage_Unloaded(object sender, RoutedEventArgs e)

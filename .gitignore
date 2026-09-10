@@ -16,6 +16,7 @@ winui/**/obj/
 # Build / release
 build/
 dist/
+artifacts/
 *.spec.bak
 
 # IceHaloStack runtime/cache

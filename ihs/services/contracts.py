@@ -113,6 +113,7 @@ class StackRequest:
     groups: Sequence[Sequence[int]]
     method: str = "mean"
     reference_luminance: float | None = None
+    backend: str = "auto"
 
 
 class FrameProvider(Protocol):

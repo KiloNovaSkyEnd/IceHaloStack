@@ -69,6 +69,9 @@ public sealed partial class StackPageViewModel
                 "center" => FormatNumber(group.CenterFrame, format),
                 "count" => FormatNumber(group.FrameCount, format),
                 "method" => StackMethod,
+                "name" or "material" => string.IsNullOrWhiteSpace(group.MaterialName)
+                    ? $"素材_{group.GroupNumber:000}"
+                    : group.MaterialName.Trim(),
                 "window" => FormatNumber(group.FrameCount, format),
                 _ => throw new InvalidOperationException($"不支持的标记：{{{name}}}"),
             };

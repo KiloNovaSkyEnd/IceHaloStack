@@ -1,0 +1,2 @@
+# Optional release accelerator. CPU-only computers remain supported.
+cupy-cuda11x==13.6.0

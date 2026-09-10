@@ -47,6 +47,7 @@ public sealed partial class StackPageViewModel
                 ["groups"] = Groups.Select(group => group.FrameIndexes.ToArray()).ToArray(),
                 ["output_paths"] = Groups.Select(group => group.OutputPath).ToArray(),
                 ["method"] = StackMethod,
+                ["backend"] = Compute.SelectedBackend,
                 ["format"] = "TIFF 32-bit Float",
                 ["config"] = Processing.ToIpcConfig(),
                 ["curve_points"] = Processing.ToCurvePoints(),
@@ -148,6 +149,9 @@ public sealed partial class StackPageViewModel
                 RefreshFromTask(task);
                 if (result.Ok)
                 {
+                    if (result.Result is { } resultPayload
+                        && resultPayload.TryGetProperty("backend", out var backendPayload))
+                        Compute.ApplyTaskBackend(backendPayload);
                     ProgressPercent = 100.0;
                     Phase = "完成";
                     Status = DescribeSuccess(result);

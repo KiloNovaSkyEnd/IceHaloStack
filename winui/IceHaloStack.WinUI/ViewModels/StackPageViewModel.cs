@@ -39,6 +39,8 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
 
     public VideoSettingsViewModel Video { get; } = new();
 
+    public ComputeSettingsViewModel Compute { get; } = new();
+
     public ObservableCollection<StackGroupingModeOption> GroupingModes { get; } =
     [
         new(StackGroupingMode.AllImages, "全部图像（一个 Master）"),
@@ -66,7 +68,7 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
     private string _outputDirectory = string.Empty;
 
     [ObservableProperty]
-    private string _outputFileNamePattern = "stack_{group:000}_{start:000}-{end:000}";
+    private string _outputFileNamePattern = "{material}_{method}_{group:000}_{start:000}-{end:000}";
 
     [ObservableProperty]
     private string _outputPathPreview = "选择输出目录后可批量生成 TIFF 文件名。";
@@ -194,9 +196,13 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
     private void OnGroupPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName is nameof(StackGroupItem.OutputPath)
+            or nameof(StackGroupItem.MaterialName)
             or nameof(StackGroupItem.FrameIndexes)
             or nameof(StackGroupItem.FrameSummary))
+        {
+            RefreshOutputPathPreview();
             RefreshWorkspaceState();
+        }
     }
 
     private void OnVideoPropertyChanged(object? sender, PropertyChangedEventArgs args)

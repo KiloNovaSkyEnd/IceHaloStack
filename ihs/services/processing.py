@@ -20,6 +20,7 @@ from .contracts import (
     ServiceCancelled,
     ProgressEvent,
 )
+from .pipeline_config import compact_pipeline_config
 
 
 def _cancelled(token: CancellationToken | None) -> bool:
@@ -65,9 +66,10 @@ class ImageProcessingService:
             raise TypeError("PipelineRequest.config 必须是映射。")
         self._check_cancelled()
         self._emit(ProgressEvent("processing", 0, 1, "开始处理"))
+        config = compact_pipeline_config(request.config)
         output = apply_timelapse_pipeline(
             request.image,
-            dict(request.config),
+            config,
             curve_points=request.curve_points,
             stop_after=request.stop_after,
         )
@@ -142,7 +144,7 @@ class ImageProcessingService:
         self._emit(ProgressEvent("preview", 0, 2, "生成预览代理"))
         proxy, scale = make_float_preview_proxy(request.image, request.max_side)
         self._check_cancelled()
-        config = scale_timelapse_cfg_for_proxy(dict(request.config), scale)
+        config = scale_timelapse_cfg_for_proxy(compact_pipeline_config(request.config), scale)
         self._emit(ProgressEvent("preview", 1, 2, "处理预览代理"))
         output = apply_timelapse_pipeline(
             proxy,

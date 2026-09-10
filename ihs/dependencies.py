@@ -106,7 +106,8 @@ def detect_cuda_backend():
         if gpu: parts.append(gpu)
         if drv: parts.append('Driver '+drv)
         if toolkit_ver: parts.append('Toolkit '+toolkit_ver)
-        parts.append('CuPy 未就绪：'+e.__class__.__name__)
+        detail = str(e).strip().replace('\n', ' ')
+        parts.append('CuPy 未就绪：'+e.__class__.__name__+((' · '+detail) if detail else ''))
         return False, ' · '.join(parts), None
 
 
@@ -142,7 +143,11 @@ def _deps():
     try:
         import numpy as np
         import tifffile
-        from PIL import Image, ImageTk, ImageFilter
+        from PIL import Image, ImageFilter
+        try:
+            from PIL import ImageTk
+        except Exception:
+            ImageTk = None
         try:
             import rawpy
         except Exception:

@@ -530,7 +530,10 @@ def apply_base_editor(img,cfg,curve_points=None):
     short-circuit before allocating pixel buffers.  Active module math is kept
     on the same production functions used by preview and final export.
     """
-    np, *_ = _deps();out=np.clip(img.astype(np.float32,copy=False),0,1);ps=float(cfg.get('_proxy_scale',1.0));act=_base_activity(cfg,curve_points)
+    np, *_ = _deps();source=img.astype(np.float32,copy=False);ps=float(cfg.get('_proxy_scale',1.0));act=_base_activity(cfg,curve_points)
+    if not any(act.values()):
+        return source
+    out=np.clip(source,0,1)
     # Make one private working buffer; subsequent neutral modules do no extra copies.
     out=out.astype(np.float32,copy=True)
     if act['tone']:

@@ -14,7 +14,7 @@ public sealed class TimelapsePageViewModel : IAsyncDisposable
         {
             GroupingMode = StackGroupingMode.SlidingWindow,
             GroupingStep = 1,
-            OutputFileNamePattern = "timelapse_{center:000.##}_{start:000}-{end:000}",
+            OutputFileNamePattern = "timelapse_{material}_{center:000.##}_{start:000}-{end:000}",
         };
     }
 
