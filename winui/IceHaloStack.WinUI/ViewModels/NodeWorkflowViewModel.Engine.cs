@@ -57,6 +57,11 @@ public sealed partial class NodeWorkflowViewModel
             ShowError("流程名称不能为空。");
             return;
         }
+        if (enabled.GroupBy(flow => flow.Name.Trim(), StringComparer.OrdinalIgnoreCase).Any(group => group.Count() > 1))
+        {
+            ShowError("启用的流程名称不能重复，否则导出文件会互相覆盖。");
+            return;
+        }
         Directory.CreateDirectory(OutputDirectory);
         IsBusy = true; CanCancel = false; HasError = false; ProgressPercent = 0;
         Phase = "连接"; Status = "正在连接节点工作流引擎…";
