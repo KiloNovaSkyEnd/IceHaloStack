@@ -22,6 +22,9 @@ public sealed class NodeGraphControl : Canvas
     private NodeWorkflowNode? _draggedNode;
     private Vector2 _pointerOrigin;
     private Vector2 _nodeOrigin;
+    private bool _wasDragged;
+
+    public event EventHandler<NodeWorkflowNode>? NodeInvoked;
 
     public ObservableCollection<NodeWorkflowNode>? Nodes
     {
@@ -101,6 +104,7 @@ public sealed class NodeGraphControl : Canvas
         var point = e.GetCurrentPoint(this).Position;
         _pointerOrigin = new Vector2((float)point.X, (float)point.Y);
         _nodeOrigin = new Vector2((float)_draggedNode.X, (float)_draggedNode.Y);
+        _wasDragged = false;
         _dragged.CapturePointer(e.Pointer);
         e.Handled = true;
     }
@@ -111,6 +115,7 @@ public sealed class NodeGraphControl : Canvas
             return;
         var point = e.GetCurrentPoint(this).Position;
         var next = _nodeOrigin + new Vector2((float)point.X, (float)point.Y) - _pointerOrigin;
+        _wasDragged |= Vector2.Distance(_pointerOrigin, new Vector2((float)point.X, (float)point.Y)) > 6;
         _dragged.Translation = new Vector3(Math.Max(0, next.X), Math.Max(0, next.Y), 0);
         UpdateLinks();
         e.Handled = true;
@@ -123,6 +128,8 @@ public sealed class NodeGraphControl : Canvas
             _draggedNode.X = _dragged.Translation.X;
             _draggedNode.Y = _dragged.Translation.Y;
             _dragged.ReleasePointerCapture(e.Pointer);
+            if (!_wasDragged)
+                NodeInvoked?.Invoke(this, _draggedNode);
         }
         _dragged = null;
         _draggedNode = null;

@@ -1,7 +1,8 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$ReleaseVersion = "v0.9.6.8b"
+    [string]$ReleaseVersion = "v0.9.6.8c",
+    [switch]$IncludeClassic
 )
 
 $ErrorActionPreference = "Stop"
@@ -25,8 +26,10 @@ if (-not (Test-Path -LiteralPath $buildPython)) {
 if ($LASTEXITCODE -ne 0) { throw "Python dependency installation failed: $LASTEXITCODE" }
 & $buildPython -m PyInstaller --noconfirm --clean (Join-Path $repo "IceHaloStackEngine.spec")
 if ($LASTEXITCODE -ne 0) { throw "IPC engine build failed: $LASTEXITCODE" }
-& $buildPython -m PyInstaller --noconfirm --clean (Join-Path $repo "IceHaloStack.spec")
-if ($LASTEXITCODE -ne 0) { throw "Classic workspace build failed: $LASTEXITCODE" }
+if ($IncludeClassic) {
+    & $buildPython -m PyInstaller --noconfirm --clean (Join-Path $repo "IceHaloStack.spec")
+    if ($LASTEXITCODE -ne 0) { throw "Classic workspace build failed: $LASTEXITCODE" }
+}
 
 $publish = Join-Path $repo "artifacts\winui-publish"
 $package = Join-Path $repo "dist\IceHaloStack.WinUI_$ReleaseVersion"
@@ -37,7 +40,9 @@ if ($LASTEXITCODE -ne 0) { throw "WinUI publish failed: $LASTEXITCODE" }
 New-Item -ItemType Directory -Force -Path $package | Out-Null
 Copy-Item -Path (Join-Path $publish "*") -Destination $package -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repo "dist\IceHaloStackEngine") -Destination (Join-Path $package "Engine") -Recurse
-Copy-Item -LiteralPath (Join-Path $repo "dist\IceHaloStack") -Destination (Join-Path $package "Classic") -Recurse
+if ($IncludeClassic) {
+    Copy-Item -LiteralPath (Join-Path $repo "dist\IceHaloStack") -Destination (Join-Path $package "Classic") -Recurse
+}
 
 $archive = Join-Path $repo "dist\IceHaloStack.WinUI_${ReleaseVersion}_win-x64.zip"
 if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }

@@ -25,7 +25,7 @@ public sealed class TimelapsePageViewModel : IAsyncDisposable
 
     public string Subtitle => "按时间窗口生成多个 Master，并批量导出为 TIFF 序列。";
 
-    public string ScopeNote => "堆栈、完整固定处理链、TIFF 序列与 FFmpeg 视频均通过独立服务执行；高级节点图和关键帧平滑仍由经典工作区提供。";
+    public string ScopeNote => "堆栈、固定处理链、TIFF 序列与 FFmpeg 视频均通过独立服务执行；节点工作流使用保留原布局的原生 WinUI 页面。";
 
     /// <summary>
     /// Sets the timelapse-oriented defaults only for the first selected batch.

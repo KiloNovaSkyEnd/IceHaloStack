@@ -1,3 +1,4 @@
+using IceHaloStack_WinUI.Controls;
 using IceHaloStack_WinUI.Services;
 using IceHaloStack_WinUI.ViewModels;
 using Microsoft.UI.Xaml;
@@ -15,6 +16,7 @@ public sealed partial class NodeWorkflowPage : Page
     {
         InitializeComponent();
         PageLifetimeRegistry.Register(ViewModel);
+        NodeGraph.NodeInvoked += OnNodeInvoked;
         Loaded += OnLoaded;
     }
 
@@ -47,6 +49,48 @@ public sealed partial class NodeWorkflowPage : Page
             Math.Max(1, (int)Math.Round(WindowSizeBox.Value)),
             Math.Max(1, (int)Math.Round(StepBox.Value)));
     }
+
+    private void GenerateReference_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.ReferenceGroupIndex = Math.Max(0, (int)Math.Round(ReferenceIndexBox.Value) - 1);
+        if (ViewModel.GeneratePreviewCommand.CanExecute(null))
+            ViewModel.GeneratePreviewCommand.Execute(null);
+    }
+
+    private async void OnNodeInvoked(object? sender, NodeWorkflowNode node)
+    {
+        if (ViewModel.SelectedFlow is null) return;
+        var editor = new ProcessingSettingsControl { ViewModel = ViewModel.SelectedFlow.Processing };
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = $"{node.Title.Replace('\n', ' ')} 参数",
+            Content = new ScrollViewer { Content = editor, MaxHeight = 620 },
+            CloseButtonText = "完成",
+        };
+        await dialog.ShowAsync();
+    }
+
+    private async void NodeHelp_Click(object sender, RoutedEventArgs e)
+    {
+        await new ContentDialog
+        {
+            XamlRoot = XamlRoot, Title = "节点画布操作",
+            Content = "单击节点编辑参数；拖动节点调整布局；滚轮或滚动条移动画布。拖动只更新合成层，不启动图像处理。",
+            CloseButtonText = "确定",
+        }.ShowAsync();
+    }
+
+    private void PreviewZoom_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string value } && float.TryParse(value,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var zoom))
+            PreviewScroller.ChangeView(null, null, zoom, false);
+    }
+
+    private void PreviewFit_Click(object sender, RoutedEventArgs e)
+        => PreviewScroller.ChangeView(0, 0, 1, false);
 
     private async void PickOutput_Click(object sender, RoutedEventArgs e)
     {

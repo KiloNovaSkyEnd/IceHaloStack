@@ -1,4 +1,4 @@
-# IceHaloStack v0.9.6.8b WinUI 3 front-end
+# IceHaloStack v0.9.6.8c WinUI 3 front-end
 
 This is the native C# front-end for the canonical Python image engine. It contains three service-backed pages:
 
@@ -16,10 +16,10 @@ chooses its own TIFF 32-bit Float output. The UI sends the visual queue as
 `input_paths`, zero-based `groups`, and `output_paths`; no image algorithm is
 duplicated in C#.
 
-Advanced node-graph editing, exposure/white-balance keyframes, and storage
-management remain available through the **完整经典工作区** button while their
-native pages are migrated. This keeps full application capability available
-without copying Tk state or image algorithms into WinUI.
+The native node workspace retains the established three-column operation flow.
+Remaining keyframe and storage pages are migrated behind shared service
+contracts instead of copying Tk state or image algorithms into WinUI. The
+default package no longer duplicates the Classic Python runtime.
 
 ## Development launch
 

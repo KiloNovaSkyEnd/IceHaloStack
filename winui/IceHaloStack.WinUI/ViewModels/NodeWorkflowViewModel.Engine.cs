@@ -25,7 +25,8 @@ public sealed partial class NodeWorkflowViewModel
             await task.StartAsync("node_workflow_preview", new Dictionary<string, object?>
             {
                 ["input_paths"] = Queue.Inputs.Select(item => item.Path).ToArray(),
-                ["group"] = Queue.Groups[0].FrameIndexes.ToArray(), ["method"] = Queue.StackMethod,
+                ["group"] = Queue.Groups[Math.Clamp(ReferenceGroupIndex, 0, Queue.Groups.Count - 1)].FrameIndexes.ToArray(),
+                ["method"] = Queue.StackMethod,
                 ["backend"] = Queue.Compute.SelectedBackend, ["config"] = SelectedFlow.Processing.ToIpcConfig(),
                 ["curve_points"] = SelectedFlow.Processing.ToCurvePoints(), ["max_side"] = 1200,
                 ["output_path"] = path, ["ewb"] = ToEwbConfig(),

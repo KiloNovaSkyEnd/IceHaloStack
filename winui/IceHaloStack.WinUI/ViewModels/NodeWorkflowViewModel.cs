@@ -40,6 +40,7 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
     [ObservableProperty] private bool _deflickerEnabled;
     [ObservableProperty] private bool _exposureSmoothingEnabled;
     [ObservableProperty] private bool _whiteBalanceSmoothingEnabled;
+    [ObservableProperty] private int _referenceGroupIndex;
 
     private Dictionary<string, object?> ToEwbConfig() => new()
     {
@@ -77,6 +78,17 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
         Flows.Remove(SelectedFlow);
         SelectedFlow = Flows[Math.Min(index, Flows.Count - 1)];
         Status = "已移除节点流程。";
+        RefreshCommands();
+    }
+
+    [RelayCommand]
+    private void DuplicateFlow()
+    {
+        if (!CanEdit || SelectedFlow is null) return;
+        var copy = SelectedFlow.Clone($"{SelectedFlow.Name} 副本");
+        Flows.Insert(Flows.IndexOf(SelectedFlow) + 1, copy);
+        SelectedFlow = copy;
+        Status = "已复制当前节点流程。";
         RefreshCommands();
     }
 

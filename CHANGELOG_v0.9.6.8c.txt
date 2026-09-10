@@ -1,0 +1,9 @@
+IceHaloStack v0.9.6.8c
+
+- Restores the Classic node-workflow panel layout and interaction order in native WinUI 3.
+- Keeps reference/EWB/performance/flows/export on the left, node canvas in the center, and live preview/progress on the right.
+- Opens processing parameters by clicking a node while retaining compositor-backed dragging.
+- Adds flow duplication and selectable reference-output groups.
+- Removes the duplicated Classic Python runtime from the default WinUI package.
+- Packages only CUDA components required by mean/maximum stacking while keeping offline GPU self-test support.
+- Leaves the existing v0.9.6.8b release unchanged.

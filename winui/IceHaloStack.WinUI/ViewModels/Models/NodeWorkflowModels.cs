@@ -47,6 +47,27 @@ public sealed partial class NodeFlowViewModel : ObservableObject
     public ObservableCollection<NodeWorkflowNode> Nodes { get; }
     public IReadOnlyList<string> VideoFormats { get; } = ["MP4 H.264", "MOV H.264", "MOV ProRes", "GIF"];
 
+    public NodeFlowViewModel Clone(string name)
+    {
+        var copy = new NodeFlowViewModel(name)
+        {
+            IsEnabled = IsEnabled, SaveSequence = SaveSequence, SaveVideo = SaveVideo,
+            VideoFormat = VideoFormat, FramesPerSecond = FramesPerSecond,
+        };
+        foreach (var property in typeof(ProcessingSettingsViewModel).GetProperties()
+                     .Where(item => item.CanRead && item.CanWrite))
+        {
+            try { property.SetValue(copy.Processing, property.GetValue(Processing)); }
+            catch { }
+        }
+        for (var index = 0; index < Math.Min(Nodes.Count, copy.Nodes.Count); index++)
+        {
+            copy.Nodes[index].X = Nodes[index].X;
+            copy.Nodes[index].Y = Nodes[index].Y;
+        }
+        return copy;
+    }
+
     public Dictionary<string, object?> ToIpcFlow() => new()
     {
         ["name"] = Name,
