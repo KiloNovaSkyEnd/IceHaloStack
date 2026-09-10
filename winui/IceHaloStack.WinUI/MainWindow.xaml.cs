@@ -24,7 +24,7 @@ public sealed partial class MainWindow : Window
 
         AppWindow.SetIcon("Assets/AppIcon.ico");
 
-        Title = "IceHaloStack v0.9.6.8a · WinUI 3";
+        Title = "IceHaloStack v0.9.6.8b · WinUI 3";
         _performanceMonitor.SnapshotUpdated += OnPerformanceSnapshotUpdated;
         _performanceMonitor.Start(RootFrame);
         Closed += OnClosed;

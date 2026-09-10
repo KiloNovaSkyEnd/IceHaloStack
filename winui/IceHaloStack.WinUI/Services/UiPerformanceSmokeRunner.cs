@@ -32,6 +32,12 @@ internal static class UiPerformanceSmokeRunner
         measurements.Add(await MeasureAsync(monitor, () => frame.Navigate(typeof(TimelapsePage))));
         var timelapsePageReused = ReferenceEquals(coldTimelapsePage, frame.Content);
         measurements.Add(await MeasureAsync(monitor, GoBack));
+        measurements.Add(await MeasureAsync(monitor, () => frame.Navigate(typeof(NodeWorkflowPage))));
+        var coldNodePage = frame.Content;
+        measurements.Add(await MeasureAsync(monitor, GoBack));
+        measurements.Add(await MeasureAsync(monitor, () => frame.Navigate(typeof(NodeWorkflowPage))));
+        var nodePageReused = ReferenceEquals(coldNodePage, frame.Content);
+        measurements.Add(await MeasureAsync(monitor, GoBack));
 
         var fullPath = Path.GetFullPath(outputPath);
         var directory = Path.GetDirectoryName(fullPath);
@@ -44,6 +50,7 @@ internal static class UiPerformanceSmokeRunner
             {
                 stack_page_reused = stackPageReused,
                 timelapse_page_reused = timelapsePageReused,
+                node_workflow_page_reused = nodePageReused,
             },
             frame_snapshot = monitor.LatestSnapshot,
             measurements = measurements.Select((item, index) => new

@@ -1,0 +1,11 @@
+IceHaloStack v0.9.6.8b
+
+- Migrates the three-column node-timelapse workspace to a native WinUI 3 page.
+- Adds compositor-backed node dragging without starting image processing during pointer movement.
+- Adds native multi-flow configuration and cancellable IPC batch export.
+- Keeps input, grouping, workflow, processing, preview, output and progress panels in the existing layout.
+- Adds Windows-compatible H.264 CFR/short-GOP/BT.709/4K-safe output.
+- Fixes stale batch-export button state after deflicker/exposure/WB toggles.
+- Keeps the classic Tk workspace as an explicitly labelled compatibility entry.
+
+Release note: v0.9.6.8 and v0.9.6.8a remain unchanged; this release uses a new v0.9.6.8b tag.

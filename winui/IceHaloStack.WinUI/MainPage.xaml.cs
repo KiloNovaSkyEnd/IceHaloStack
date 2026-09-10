@@ -78,4 +78,7 @@ public sealed partial class MainPage : Page
 
     private void OpenTimelapsePage_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         => Frame.Navigate(typeof(TimelapsePage));
+
+    private void OpenNodeWorkflow_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => Frame.Navigate(typeof(NodeWorkflowPage));
 }

@@ -1,6 +1,7 @@
 param(
     [string]$Configuration = "Release",
-    [string]$Runtime = "win-x64"
+    [string]$Runtime = "win-x64",
+    [string]$ReleaseVersion = "v0.9.6.8b"
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,7 +29,7 @@ if ($LASTEXITCODE -ne 0) { throw "IPC engine build failed: $LASTEXITCODE" }
 if ($LASTEXITCODE -ne 0) { throw "Classic workspace build failed: $LASTEXITCODE" }
 
 $publish = Join-Path $repo "artifacts\winui-publish"
-$package = Join-Path $repo "dist\IceHaloStack.WinUI_v0.9.6.8a"
+$package = Join-Path $repo "dist\IceHaloStack.WinUI_$ReleaseVersion"
 if (Test-Path -LiteralPath $publish) { Remove-Item -LiteralPath $publish -Recurse -Force }
 if (Test-Path -LiteralPath $package) { Remove-Item -LiteralPath $package -Recurse -Force }
 dotnet publish (Join-Path $repo "winui\IceHaloStack.WinUI\IceHaloStack.WinUI.csproj") -c $Configuration -r $Runtime -p:Platform=x64 --self-contained true -o $publish
@@ -38,7 +39,7 @@ Copy-Item -Path (Join-Path $publish "*") -Destination $package -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $repo "dist\IceHaloStackEngine") -Destination (Join-Path $package "Engine") -Recurse
 Copy-Item -LiteralPath (Join-Path $repo "dist\IceHaloStack") -Destination (Join-Path $package "Classic") -Recurse
 
-$archive = Join-Path $repo "dist\IceHaloStack.WinUI_v0.9.6.8a_win-x64.zip"
+$archive = Join-Path $repo "dist\IceHaloStack.WinUI_${ReleaseVersion}_win-x64.zip"
 if (Test-Path -LiteralPath $archive) { Remove-Item -LiteralPath $archive -Force }
 Compress-Archive -LiteralPath $package -DestinationPath $archive -CompressionLevel Optimal
 Write-Host "WinUI release package: $archive"

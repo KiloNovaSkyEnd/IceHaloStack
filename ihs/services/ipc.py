@@ -33,6 +33,7 @@ from .processing import ImageProcessingService
 from .stacking import StackService
 from .stack_acceleration import inspect_backends
 from .native_workspaces import ExposureSmoothingService, NodeWorkflowService, StorageInspectionService
+from .node_exporting import NodeWorkflowExportService, NodeWorkflowPreviewService
 from .video_exporting import VideoExportService
 
 
@@ -119,7 +120,7 @@ class JsonServiceAdapter:
             return {
                 "protocol": self.PROTOCOL,
                 "version": VERSION,
-                "capabilities": ["ping", "compute_capabilities", "process_file", "stack_files",
+                "capabilities": ["ping", "compute_capabilities", "process_file", "stack_files", "node_workflow_export", "node_workflow_preview",
                                  "node_workflow_inspect", "ewb_build_corrections", "storage_inspect"],
             }
         if request.method == "compute_capabilities":
@@ -137,6 +138,10 @@ class JsonServiceAdapter:
             return self._process_file(request.params)
         if request.method == "stack_files":
             return self._stack_files(request.params)
+        if request.method == "node_workflow_export":
+            return NodeWorkflowExportService(progress=self._emit, cancellation=self.cancellation).save(request.params)
+        if request.method == "node_workflow_preview":
+            return NodeWorkflowPreviewService(progress=self._emit, cancellation=self.cancellation).save(request.params)
         raise JsonProtocolError(f"不支持的 method：{request.method}。")
 
     def _process_file(self, params: Mapping[str, Any]) -> dict[str, Any]:
