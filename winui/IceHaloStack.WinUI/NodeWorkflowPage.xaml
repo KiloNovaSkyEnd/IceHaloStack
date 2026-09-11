@@ -7,151 +7,160 @@
     xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels"
     NavigationCacheMode="Required">
 
-    <Grid Padding="8" RowSpacing="7">
-        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-        <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-            <Button Content="← 返回" Click="Back_Click" Margin="0,0,8,0" IsEnabled="{x:Bind ViewModel.CanNavigate, Mode=OneWay}" />
-            <TextBlock Grid.Column="1" Text="堆栈延时 · 节点工作流 / Stack Timelapse · Node Workflow"
-                       Style="{StaticResource TitleTextBlockStyle}" VerticalAlignment="Center" />
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <TextBlock Text="输入" Opacity="0.65"/><TextBlock Text="{x:Bind ViewModel.Queue.InputCount, Mode=OneWay}"/><TextBlock Text="帧" Opacity="0.65"/>
+    <Grid Padding="20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <Button Content="← 返回" Click="Back_Click" IsEnabled="{x:Bind ViewModel.CanNavigate, Mode=OneWay}" />
+            <StackPanel Grid.Column="1" Spacing="2">
+                <TextBlock Text="堆栈延时 · 原生节点工作流" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="WinUI 3 原生三栏工作区；拖动节点只更新 Composition 位移，不启动图像计算。" Opacity="0.72" />
             </StackPanel>
         </Grid>
-        <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}" Severity="Error"
-                 IsClosable="False" Message="{x:Bind ViewModel.Error, Mode=OneWay}" />
 
-        <Grid Grid.Row="2" ColumnSpacing="6">
+        <InfoBar Grid.Row="1" IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                 Severity="Error" IsClosable="False" Message="{x:Bind ViewModel.Error, Mode=OneWay}" />
+
+        <Grid Grid.Row="2" ColumnSpacing="12">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="330" MinWidth="285"/>
-                <ColumnDefinition Width="1.38*" MinWidth="470"/>
-                <ColumnDefinition Width="*" MinWidth="360"/>
+                <ColumnDefinition Width="310" />
+                <ColumnDefinition Width="*" MinWidth="480" />
+                <ColumnDefinition Width="360" />
             </Grid.ColumnDefinitions>
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="8" Padding="0,0,6,0">
-                    <Expander Header="参考堆栈" IsExpanded="True">
-                        <StackPanel Spacing="6" Padding="7">
-                            <Button Content="添加图像…" Click="PickInputs_Click" HorizontalAlignment="Stretch"/>
-                            <ComboBox Header="模式" ItemsSource="{x:Bind ViewModel.Queue.GroupingModes}"
+            <Border Padding="12" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="130"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="参考堆栈与输入" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                        <Button Content="添加图像…" Click="PickInputs_Click" Style="{StaticResource AccentButtonStyle}" />
+                        <ComboBox Width="105" ItemsSource="{x:Bind ViewModel.StackMethods}"
+                                  SelectedItem="{x:Bind ViewModel.Queue.StackMethod, Mode=TwoWay}" />
+                    </StackPanel>
+                    <ListView Grid.Row="2" ItemsSource="{x:Bind ViewModel.Queue.Inputs, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.Queue.SelectedInput, Mode=TwoWay}">
+                        <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel /></ItemsPanelTemplate></ListView.ItemsPanel>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:StackInputItem">
+                                <Grid ColumnSpacing="7">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <Image Width="42" Height="32" Source="{x:Bind Thumbnail, Mode=OneWay}"
+                                           Stretch="UniformToFill" Loaded="InputThumbnail_Loaded" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind FileName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
+                    <Expander Grid.Row="3" Header="时间窗口与去闪 / 曝光 / 白平衡">
+                        <StackPanel Spacing="7">
+                            <ComboBox Header="分组模式" ItemsSource="{x:Bind ViewModel.Queue.GroupingModes}"
                                       DisplayMemberPath="DisplayName" SelectedValuePath="Value"
-                                      SelectedValue="{x:Bind ViewModel.Queue.GroupingMode, Mode=TwoWay}"/>
-                            <ComboBox Header="堆栈方式" ItemsSource="{x:Bind ViewModel.StackMethods}"
-                                      SelectedItem="{x:Bind ViewModel.Queue.StackMethod, Mode=TwoWay}"/>
-                            <Grid ColumnSpacing="6">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <NumberBox x:Name="WindowSizeBox" Header="窗口大小" Minimum="1" Value="1"/>
-                                <NumberBox x:Name="StepBox" Grid.Column="1" Header="步长" Minimum="1" Value="1"/>
-                            </Grid>
-                            <TextBlock Text="{x:Bind ViewModel.Queue.GroupCount, Mode=OneWay}" Opacity="0.65"/>
-                            <Grid ColumnSpacing="6">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <NumberBox x:Name="ReferenceIndexBox" Header="参考输出帧" Minimum="1" Value="1"/>
-                                <Button Grid.Column="1" Content="生成参考堆栈" VerticalAlignment="Bottom"
-                                        Style="{StaticResource AccentButtonStyle}" Click="GenerateReference_Click"/>
-                            </Grid>
-                            <Button Content="重新生成时间分组" Click="GenerateGroups_Click"/>
-                        </StackPanel>
-                    </Expander>
-
-                    <Expander Header="去闪 / 曝光 / 白平衡">
-                        <StackPanel Spacing="5" Padding="7">
-                            <ToggleSwitch Header="去闪" IsOn="{x:Bind ViewModel.Ewb.DeflickerEnabled, Mode=TwoWay}"/>
-                            <ToggleSwitch Header="曝光平滑" IsOn="{x:Bind ViewModel.Ewb.ExposureSmoothingEnabled, Mode=TwoWay}"/>
-                            <ToggleSwitch Header="白平衡平滑" IsOn="{x:Bind ViewModel.Ewb.WhiteBalanceSmoothingEnabled, Mode=TwoWay}"/>
-                            <Button Content="打开曝光与白平衡工作区…" Click="OpenEwb_Click"/>
-                        </StackPanel>
-                    </Expander>
-
-                    <Expander Header="性能与内存 / Performance &amp; Memory">
-                        <StackPanel Spacing="5" Padding="7">
+                                      SelectedValue="{x:Bind ViewModel.Queue.GroupingMode, Mode=TwoWay}" />
+                            <NumberBox x:Name="WindowSizeBox" Header="窗口大小" Minimum="1" Value="1" />
+                            <NumberBox x:Name="StepBox" Header="步长" Minimum="1" Value="1" />
+                            <Button Content="生成分组" Click="GenerateGroups_Click" />
                             <ComboBox Header="计算后端" ItemsSource="{x:Bind ViewModel.Queue.Compute.Options}"
                                       DisplayMemberPath="DisplayName" SelectedValuePath="Value"
-                                      SelectedValue="{x:Bind ViewModel.Queue.Compute.SelectedBackend, Mode=TwoWay}"/>
-                            <Button Content="重新自检 GPU" Command="{x:Bind ViewModel.Queue.RefreshComputeCommand}"/>
-                            <TextBlock Text="{x:Bind ViewModel.Queue.Compute.Status, Mode=OneWay}" TextWrapping="Wrap" FontSize="11" Opacity="0.65"/>
+                                      SelectedValue="{x:Bind ViewModel.Queue.Compute.SelectedBackend, Mode=TwoWay}" />
+                            <Button Content="重新自检 GPU" Command="{x:Bind ViewModel.Queue.RefreshComputeCommand}" />
+                            <TextBlock Text="{x:Bind ViewModel.Queue.Compute.Status, Mode=OneWay}" TextWrapping="Wrap" FontSize="11" Opacity="0.65" />
+                            <ToggleSwitch Header="去闪" IsOn="{x:Bind ViewModel.DeflickerEnabled, Mode=TwoWay}" />
+                            <ToggleSwitch Header="平滑曝光" IsOn="{x:Bind ViewModel.ExposureSmoothingEnabled, Mode=TwoWay}" />
+                            <ToggleSwitch Header="平滑白平衡" IsOn="{x:Bind ViewModel.WhiteBalanceSmoothingEnabled, Mode=TwoWay}" />
+                            <TextBlock Text="逐帧分析和修正在 Python 后台完成，再进入堆栈。" TextWrapping="Wrap" Opacity="0.65" FontSize="12" />
                         </StackPanel>
                     </Expander>
 
-                    <Expander Header="节点流程 / Flows" IsExpanded="True">
-                        <StackPanel Spacing="6" Padding="7">
-                            <ListView Height="150" ItemsSource="{x:Bind ViewModel.Flows}" SelectedItem="{x:Bind ViewModel.SelectedFlow, Mode=TwoWay}">
-                                <ListView.ItemTemplate>
-                                    <DataTemplate x:DataType="viewModels:NodeFlowViewModel">
-                                        <Grid ColumnSpacing="6">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                            <CheckBox IsChecked="{x:Bind IsEnabled, Mode=TwoWay}"/>
-                                            <TextBox Grid.Column="1" Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                            </ListView>
-                            <Grid ColumnSpacing="4">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <Button Content="＋ 新建" Command="{x:Bind ViewModel.AddFlowCommand}"/>
-                                <Button Grid.Column="1" Content="复制" Command="{x:Bind ViewModel.DuplicateFlowCommand}"/>
-                                <Button Grid.Column="2" Content="删除" Command="{x:Bind ViewModel.RemoveFlowCommand}"/>
-                            </Grid>
+                    <Grid Grid.Row="4" ColumnSpacing="6">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="节点流程" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                            <Button Content="＋" Command="{x:Bind ViewModel.AddFlowCommand}" />
+                            <Button Content="－" Command="{x:Bind ViewModel.RemoveFlowCommand}" />
                         </StackPanel>
-                    </Expander>
-
-                    <Expander Header="批量导出 / Batch Export" IsExpanded="True">
-                        <StackPanel Spacing="6" Padding="7">
-                            <Grid ColumnSpacing="4">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <TextBox Text="{x:Bind ViewModel.OutputDirectory, Mode=TwoWay}"/>
-                                <Button Grid.Column="1" Content="选择" Click="PickOutput_Click"/>
-                            </Grid>
-                            <Button Content="开始批量导出所有启用流程" Style="{StaticResource AccentButtonStyle}"
-                                    Command="{x:Bind ViewModel.StartExportCommand}"/>
-                            <TextBlock Text="{x:Bind ViewModel.ExportBlockReason, Mode=OneWay}"
-                                       TextWrapping="Wrap" FontSize="11" Opacity="0.65" />
-                            <Button Content="取消" Command="{x:Bind ViewModel.CancelCommand}"/>
-                        </StackPanel>
-                    </Expander>
-                </StackPanel>
-            </ScrollViewer>
-
-            <Border Grid.Column="1" Padding="5" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                <Grid RowSpacing="4">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <TextBlock Text="当前流程节点画布 / Node Canvas · 单击节点编辑参数" Style="{StaticResource SubtitleTextBlockStyle}"/>
-                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                                  ZoomMode="Enabled" MinZoomFactor="0.5" MaxZoomFactor="2.5">
-                        <controls:NodeGraphControl x:Name="NodeGraph" Nodes="{x:Bind ViewModel.SelectedFlow.Nodes, Mode=OneWay}"/>
-                    </ScrollViewer>
-                    <Button Grid.Row="2" Content="节点画布操作…" HorizontalAlignment="Right" Click="NodeHelp_Click"/>
+                    </Grid>
+                    <ListView Grid.Row="5" ItemsSource="{x:Bind ViewModel.Flows}"
+                              SelectedItem="{x:Bind ViewModel.SelectedFlow, Mode=TwoWay}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:NodeFlowViewModel">
+                                <Grid ColumnSpacing="6">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <CheckBox IsChecked="{x:Bind IsEnabled, Mode=TwoWay}" />
+                                    <TextBox Grid.Column="1" Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock Grid.Row="6" Text="{x:Bind ViewModel.Queue.GroupCount, Mode=OneWay}" />
                 </Grid>
             </Border>
 
-            <Grid Grid.Column="2" RowSpacing="7" Padding="6,0,0,0">
-                <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                <Border Padding="5" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                    <Grid RowSpacing="5">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <Border Grid.Column="1" Padding="10" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid RowSpacing="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="当前流程节点画布 · 拖动节点编辑布局" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                                  ZoomMode="Enabled" MinZoomFactor="0.5" MaxZoomFactor="2.5">
+                        <controls:NodeGraphControl Nodes="{x:Bind ViewModel.SelectedFlow.Nodes, Mode=OneWay}" />
+                    </ScrollViewer>
+                    <TextBlock Grid.Row="2" Text="节点位置在指针移动时使用合成层 Translation；处理只在预览或导出命令中运行。"
+                               FontSize="12" Opacity="0.65" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Padding="12" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid RowSpacing="9">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="190"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <TextBlock Text="实时预览与流程参数" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <Border Grid.Row="1" Background="#101010" CornerRadius="5">
                         <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                            <TextBlock Text="当前流程实时预览 / Live Preview" Style="{StaticResource SubtitleTextBlockStyle}"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
-                                <Button Content="25%" Tag="0.25" Click="PreviewZoom_Click"/><Button Content="50%" Tag="0.5" Click="PreviewZoom_Click"/>
-                                <Button Content="100%" Tag="1" Click="PreviewZoom_Click"/><Button Content="200%" Tag="2" Click="PreviewZoom_Click"/>
-                                <Button Content="Fit" Click="PreviewFit_Click"/>
-                            </StackPanel>
+                            <Image Source="{x:Bind ViewModel.PreviewSource, Mode=OneWay}" Stretch="Uniform" />
+                            <Button Content="生成当前流程预览" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                    Margin="0,0,0,8" Command="{x:Bind ViewModel.GeneratePreviewCommand}" />
                         </Grid>
-                        <ScrollViewer x:Name="PreviewScroller" Grid.Row="1" ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="4"
-                                      HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Background="#101010">
-                            <Image Source="{x:Bind ViewModel.PreviewSource, Mode=OneWay}" Stretch="Uniform"/>
-                        </ScrollViewer>
-                    </Grid>
-                </Border>
-                <StackPanel Grid.Row="1" Spacing="3">
-                    <TextBlock Text="Processing / 处理" Opacity="0.65"/><ProgressBar Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" Maximum="100"/>
-                    <TextBlock Text="Writing / 写入" Opacity="0.65"/><ProgressBar Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" Maximum="100"/>
-                    <TextBlock Text="{x:Bind ViewModel.Phase, Mode=OneWay}" Opacity="0.65"/>
-                    <ProgressBar Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" Maximum="100"/>
-                    <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" TextWrapping="Wrap"/>
-                </StackPanel>
-            </Grid>
+                    </Border>
+                    <ScrollViewer Grid.Row="2">
+                        <StackPanel Spacing="8">
+                            <controls:ProcessingSettingsControl ViewModel="{x:Bind ViewModel.SelectedFlow.Processing, Mode=OneWay}" />
+                            <ToggleSwitch Header="保存 32-bit TIFF 序列" IsOn="{x:Bind ViewModel.SelectedFlow.SaveSequence, Mode=TwoWay}" />
+                            <ToggleSwitch Header="同时生成视频" IsOn="{x:Bind ViewModel.SelectedFlow.SaveVideo, Mode=TwoWay}" />
+                            <ComboBox Header="视频格式" ItemsSource="{x:Bind ViewModel.SelectedFlow.VideoFormats}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedFlow.VideoFormat, Mode=TwoWay}" />
+                            <NumberBox Header="FPS" Minimum="0.1" Value="{x:Bind ViewModel.SelectedFlow.FramesPerSecond, Mode=TwoWay}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <StackPanel Grid.Row="3" Spacing="7">
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox Header="输出目录" Text="{x:Bind ViewModel.OutputDirectory, Mode=TwoWay}" />
+                            <Button Grid.Column="1" Content="选择…" VerticalAlignment="Bottom" Click="PickOutput_Click" />
+                        </Grid>
+                        <ProgressBar Value="{x:Bind ViewModel.ProgressPercent, Mode=OneWay}" Maximum="100" />
+                        <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Button Content="开始批量导出所有启用流程" Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.StartExportCommand}" />
+                            <Button Content="取消" Command="{x:Bind ViewModel.CancelCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
         </Grid>
     </Grid>
 </Page>

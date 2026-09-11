@@ -11,7 +11,7 @@
   <Identity
     Name="432CF53C-EE03-48CC-9A8C-5DBE435E1DEF"
     Publisher="CN=IceHaloStack"
-    Version="0.9.6.83" />
+    Version="0.9.6.82" />
 
   <mp:PhoneIdentity PhoneProductId="432CF53C-EE03-48CC-9A8C-5DBE435E1DEF" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 

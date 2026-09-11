@@ -43,15 +43,6 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        UnhandledException += OnUnhandledException;
-    }
-
-    private static void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)
-    {
-        var report = Environment.GetEnvironmentVariable("ICEHALOSTACK_PERF_SMOKE_PATH");
-        if (string.IsNullOrWhiteSpace(report)) return;
-        try { File.WriteAllText(Path.GetFullPath(report) + ".exception.txt", args.Exception?.ToString() ?? args.Message); }
-        catch { }
     }
 
     /// <summary>

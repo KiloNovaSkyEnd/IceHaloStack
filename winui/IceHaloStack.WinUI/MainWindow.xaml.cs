@@ -24,14 +24,10 @@ public sealed partial class MainWindow : Window
 
         AppWindow.SetIcon("Assets/AppIcon.ico");
 
-        Title = "IceHaloStack v0.9.6.8c · WinUI 3";
+        Title = "IceHaloStack v0.9.6.8b · WinUI 3";
         _performanceMonitor.SnapshotUpdated += OnPerformanceSnapshotUpdated;
         _performanceMonitor.Start(RootFrame);
         Closed += OnClosed;
-        RootFrame.Navigated += (_, _) =>
-        {
-            if (RootFrame.Content is FrameworkElement page) UiPreferencesService.Current.Apply(page);
-        };
         RootFrame.Navigate(typeof(MainPage));
     }
 

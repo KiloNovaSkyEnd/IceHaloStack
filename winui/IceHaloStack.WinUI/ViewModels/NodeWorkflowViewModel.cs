@@ -3,23 +3,19 @@ using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IceHaloStack.WinUI.Client;
-using IceHaloStack_WinUI.Services;
 using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace IceHaloStack_WinUI.ViewModels;
 
 public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisposable
 {
-    private readonly IEngineClientProvider _engineClientProvider;
+    private IpcClient? _client;
     private IpcTaskViewModel? _task;
     private bool _disposed;
     private readonly List<string> _previewFiles = [];
 
-    public NodeWorkflowViewModel(IEngineClientProvider? engineClientProvider = null)
+    public NodeWorkflowViewModel()
     {
-        _engineClientProvider = engineClientProvider ?? new EngineClientProvider();
-        Queue = new StackPageViewModel(_engineClientProvider);
-        Ewb = new EwbWorkspaceViewModel(_engineClientProvider);
         Flows.CollectionChanged += OnFlowsChanged;
         Flows.Add(new NodeFlowViewModel("流程 1"));
         SelectedFlow = Flows[0];
@@ -27,8 +23,7 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
         Queue.Groups.CollectionChanged += OnQueueChanged;
     }
 
-    public StackPageViewModel Queue { get; }
-    public EwbWorkspaceViewModel Ewb { get; }
+    public StackPageViewModel Queue { get; } = new();
     public ObservableCollection<NodeFlowViewModel> Flows { get; } = [];
     public IReadOnlyList<string> StackMethods { get; } = ["mean", "maximum"];
 
@@ -42,15 +37,23 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
     [ObservableProperty] private string _error = string.Empty;
     [ObservableProperty] private bool _hasError;
     [ObservableProperty] private BitmapImage? _previewSource;
-    [ObservableProperty] private int _referenceGroupIndex;
+    [ObservableProperty] private bool _deflickerEnabled;
+    [ObservableProperty] private bool _exposureSmoothingEnabled;
+    [ObservableProperty] private bool _whiteBalanceSmoothingEnabled;
 
-    private Dictionary<string, object?> ToEwbConfig() => Ewb.ToIpcConfig();
-
-    public void PrepareEwbWorkspace()
-        => Ewb.SetInputPaths(Queue.Inputs.Select(item => item.Path));
+    private Dictionary<string, object?> ToEwbConfig() => new()
+    {
+        ["deflicker_enabled"] = DeflickerEnabled,
+        ["exposure_enabled"] = ExposureSmoothingEnabled,
+        ["wb_enabled"] = WhiteBalanceSmoothingEnabled,
+    };
 
     public bool CanEdit => !_disposed && !IsBusy;
     public bool CanNavigate => CanEdit;
+    public bool CanStart => CanEdit && Queue.Inputs.Count > 0 && Queue.Groups.Count > 0
+        && Flows.Any(flow => flow.IsEnabled && (flow.SaveSequence || flow.SaveVideo))
+        && !string.IsNullOrWhiteSpace(OutputDirectory);
+
     partial void OnOutputDirectoryChanged(string value) => RefreshCommands();
     partial void OnIsBusyChanged(bool value) => RefreshCommands();
     partial void OnSelectedFlowChanged(NodeFlowViewModel? value) => RefreshCommands();
@@ -77,17 +80,6 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
         RefreshCommands();
     }
 
-    [RelayCommand]
-    private void DuplicateFlow()
-    {
-        if (!CanEdit || SelectedFlow is null) return;
-        var copy = SelectedFlow.Clone($"{SelectedFlow.Name} 副本");
-        Flows.Insert(Flows.IndexOf(SelectedFlow) + 1, copy);
-        SelectedFlow = copy;
-        Status = "已复制当前节点流程。";
-        RefreshCommands();
-    }
-
     private void OnQueueChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshCommands();
     private void OnFlowsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -105,7 +97,6 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
         OnPropertyChanged(nameof(CanEdit));
         OnPropertyChanged(nameof(CanNavigate));
         OnPropertyChanged(nameof(CanStart));
-        OnPropertyChanged(nameof(ExportBlockReason));
         StartExportCommand.NotifyCanExecuteChanged();
         GeneratePreviewCommand.NotifyCanExecuteChanged();
         CancelCommand.NotifyCanExecuteChanged();
@@ -126,7 +117,7 @@ public sealed partial class NodeWorkflowViewModel : ObservableObject, IAsyncDisp
         Flows.CollectionChanged -= OnFlowsChanged;
         foreach (var flow in Flows) flow.PropertyChanged -= OnFlowChanged;
         _task?.Dispose();
-        Ewb.Dispose();
+        if (_client is not null) await _client.DisposeAsync().ConfigureAwait(false);
         await Queue.DisposeAsync().ConfigureAwait(false);
         foreach (var file in _previewFiles) { try { File.Delete(file); } catch { } }
     }

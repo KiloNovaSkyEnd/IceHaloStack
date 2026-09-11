@@ -53,18 +53,14 @@ def probe_cuda() -> tuple[bool, str, Any | None]:
         from cupy.cuda import compiler
         package_root = Path(getattr(sys, "_MEIPASS", Path(cp.__file__).resolve().parent.parent))
         packaged_include = package_root / "cupy" / "_core" / "include"
-        packaged_cuda_include = package_root / "cuda" / "include"
         # NVRTC 11.x cannot reliably resolve non-ASCII Windows paths. Stage
         # headers once under the ASCII temp root before compiling kernels.
         include_dir = Path(tempfile.gettempdir()) / f"IceHaloStack-CuPy-{cp.__version__}"
         if not (include_dir / "cupy" / "complex.cuh").is_file():
             shutil.copytree(packaged_include, include_dir, dirs_exist_ok=True)
-        cuda_include_dir = include_dir / "cuda_include"
-        if packaged_cuda_include.is_dir() and not (cuda_include_dir / "cuda_fp16.h").is_file():
-            shutil.copytree(packaged_cuda_include, cuda_include_dir, dirs_exist_ok=True)
         previous_include_options = compiler._get_extra_include_dir_opts
-        compiler._get_extra_include_dir_opts = lambda: tuple(previous_include_options()) + tuple(
-            f"-I{path}" for path in (include_dir, cuda_include_dir) if path.is_dir()
+        compiler._get_extra_include_dir_opts = lambda: tuple(previous_include_options()) + (
+            f"-I{include_dir}",
         )
         sample = cp.arange(48, dtype=cp.float32).reshape(4, 4, 3)
         result = float(cp.mean(sample).get())

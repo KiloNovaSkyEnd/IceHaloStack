@@ -2,40 +2,6 @@ namespace IceHaloStack_WinUI.ViewModels;
 
 public sealed partial class StackPageViewModel
 {
-    public void SelectAllInputs()
-    {
-        if (!EnsureEditable("堆栈任务运行时不能修改选择。")) return;
-        foreach (var input in Inputs) input.IsSelected = true;
-        SelectedInput = Inputs.FirstOrDefault();
-        Status = $"已选中 {Inputs.Count} 帧。";
-        RefreshWorkspaceState();
-    }
-
-    public void RemoveMarkedInputs()
-    {
-        if (!EnsureEditable("堆栈任务运行时不能修改图像队列。")) return;
-        var selected = Inputs.Where(item => item.IsSelected).ToArray();
-        if (selected.Length == 0 && SelectedInput is not null) selected = [SelectedInput];
-        foreach (var input in selected)
-        {
-            Inputs.Remove(input);
-            input.PropertyChanged -= OnInputPropertyChanged;
-        }
-        ReindexAndSynchronizeGroups();
-        SelectedInput = Inputs.FirstOrDefault();
-        Status = selected.Length == 0 ? "没有选中可移除的帧。" : $"已移除 {selected.Length} 帧。";
-        RefreshWorkspaceState();
-    }
-
-    public void ClearProject()
-    {
-        if (!EnsureEditable("堆栈任务运行时不能清空工程。")) return;
-        foreach (var input in Inputs) input.PropertyChanged -= OnInputPropertyChanged;
-        foreach (var group in Groups) group.PropertyChanged -= OnGroupPropertyChanged;
-        Inputs.Clear(); Groups.Clear(); SelectedInput = null; PreviewSource = null; HistogramBins.Clear();
-        Status = "工程已清空。"; ClearError(); RefreshWorkspaceState();
-    }
-
     public void AddInputPaths(IEnumerable<string> paths)
     {
         ArgumentNullException.ThrowIfNull(paths);

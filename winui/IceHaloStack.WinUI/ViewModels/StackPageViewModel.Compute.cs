@@ -24,7 +24,7 @@ public sealed partial class StackPageViewModel
         await DispatchToUiAsync(() => Compute.IsProbing = true).ConfigureAwait(false);
         try
         {
-            var client = await _engineClientProvider.GetClientAsync().ConfigureAwait(false);
+            var client = await GetClientAsync().ConfigureAwait(false);
             var result = await client.RequestAsync(
                 "compute_capabilities",
                 new Dictionary<string, object?> { ["refresh"] = refresh },

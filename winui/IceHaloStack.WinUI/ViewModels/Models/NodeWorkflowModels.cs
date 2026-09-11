@@ -28,7 +28,7 @@ public sealed partial class NodeFlowViewModel : ObservableObject
             new("stretch", "Stretch\n拉伸", 190, 135),
             new("basic", "Base\n基础调色", 190, 235),
             new("usm", "USM\n锐化", 190, 335),
-            new("bgr", "BGR\n背景/曲线", 440, 335),
+            new("background", "Background\n背景", 440, 335),
             new("highpass", "High Pass\n高反差", 440, 235),
             new("emboss", "Emboss\n浮雕", 440, 135),
             new("channel", "Channel\n通道", 440, 35),
@@ -46,22 +46,6 @@ public sealed partial class NodeFlowViewModel : ObservableObject
     public ProcessingSettingsViewModel Processing { get; } = new();
     public ObservableCollection<NodeWorkflowNode> Nodes { get; }
     public IReadOnlyList<string> VideoFormats { get; } = ["MP4 H.264", "MOV H.264", "MOV ProRes", "GIF"];
-
-    public NodeFlowViewModel Clone(string name)
-    {
-        var copy = new NodeFlowViewModel(name)
-        {
-            IsEnabled = IsEnabled, SaveSequence = SaveSequence, SaveVideo = SaveVideo,
-            VideoFormat = VideoFormat, FramesPerSecond = FramesPerSecond,
-        };
-        copy.Processing.CopyFrom(Processing);
-        for (var index = 0; index < Math.Min(Nodes.Count, copy.Nodes.Count); index++)
-        {
-            copy.Nodes[index].X = Nodes[index].X;
-            copy.Nodes[index].Y = Nodes[index].Y;
-        }
-        return copy;
-    }
 
     public Dictionary<string, object?> ToIpcFlow() => new()
     {
@@ -83,7 +67,7 @@ public sealed partial class NodeFlowViewModel : ObservableObject
         {
             ["stack"] = true, ["stretch"] = Processing.EnableStretch,
             ["basic"] = Processing.EnableBasic, ["usm"] = Processing.EnableUsm,
-            ["bgr"] = Processing.EnableBackground || Processing.EnableCurves, ["highpass"] = Processing.EnableHighPass,
+            ["background"] = Processing.EnableBackground, ["highpass"] = Processing.EnableHighPass,
             ["emboss"] = Processing.EnableEmboss, ["channel"] = Processing.EnableChannelMixer,
             ["output"] = true,
         };

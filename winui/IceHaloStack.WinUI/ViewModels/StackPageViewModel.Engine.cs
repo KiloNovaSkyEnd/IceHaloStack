@@ -26,14 +26,13 @@ public sealed partial class StackPageViewModel
         IsBusy = true;
         CanCancel = false;
         ProgressPercent = 0.0;
-        IsPaused = false;
         Phase = "连接";
         Status = "正在连接 Python 图像堆栈引擎…";
         RefreshWorkspaceState();
 
         try
         {
-            var client = await _engineClientProvider.GetClientAsync().ConfigureAwait(false);
+            var client = await GetClientAsync().ConfigureAwait(false);
             DetachTask();
             var task = new IpcTaskViewModel(
                 client,
@@ -106,8 +105,36 @@ public sealed partial class StackPageViewModel
             input.PropertyChanged -= OnInputPropertyChanged;
         foreach (var group in Groups)
             group.PropertyChanged -= OnGroupPropertyChanged;
-        DeletePreviewFiles();
-        await _engineClientProvider.DisposeAsync().ConfigureAwait(false);
+        if (_client is not null)
+        {
+            await _client.DisposeAsync().ConfigureAwait(false);
+            _client = null;
+        }
+    }
+
+    private async Task<IpcClient> GetClientAsync()
+    {
+        if (_client is { IsAlive: true })
+            return _client;
+        if (_client is not null)
+        {
+            await _client.DisposeAsync().ConfigureAwait(false);
+            _client = null;
+        }
+
+        var client = EngineClientFactory.CreateDevelopmentClient();
+        try
+        {
+            await client.StartAsync().ConfigureAwait(false);
+            await client.PingAsync(TimeSpan.FromSeconds(12)).ConfigureAwait(false);
+            _client = client;
+            return client;
+        }
+        catch
+        {
+            await client.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
     private async Task ObserveTerminalResultAsync(IpcClient client, IpcTaskViewModel task)
@@ -128,14 +155,12 @@ public sealed partial class StackPageViewModel
                     ProgressPercent = 100.0;
                     Phase = "完成";
                     Status = DescribeSuccess(result);
-                    IsPaused = false;
                 }
                 else if (result.Cancelled)
                 {
                     ClearError();
                     Phase = "已取消";
                     Status = "堆栈任务已取消。";
-                    IsPaused = false;
                 }
                 else
                 {

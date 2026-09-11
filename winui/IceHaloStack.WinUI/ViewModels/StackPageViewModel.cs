@@ -3,8 +3,6 @@ using System.ComponentModel;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using IceHaloStack.WinUI.Client;
-using IceHaloStack_WinUI.Services;
-using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace IceHaloStack_WinUI.ViewModels;
 
@@ -24,21 +22,18 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
         @"\{(?<name>[A-Za-z]+)(?::(?<format>[^{}]+))?\}",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private readonly IEngineClientProvider _engineClientProvider;
+    private IpcClient? _client;
     private IpcTaskViewModel? _task;
     private bool _disposed;
 
-    public StackPageViewModel(IEngineClientProvider? engineClientProvider = null)
+    public StackPageViewModel()
     {
-        _engineClientProvider = engineClientProvider ?? new EngineClientProvider();
         Video.PropertyChanged += OnVideoPropertyChanged;
     }
 
     public ObservableCollection<StackInputItem> Inputs { get; } = [];
 
     public ObservableCollection<StackGroupItem> Groups { get; } = [];
-
-    public ObservableCollection<double> HistogramBins { get; } = [];
 
     public ProcessingSettingsViewModel Processing { get; } = new();
 
@@ -56,9 +51,6 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
 
     [ObservableProperty]
     private StackInputItem? _selectedInput;
-
-    [ObservableProperty]
-    private BitmapImage? _previewSource;
 
     [ObservableProperty]
     private string _stackMethod = "mean";
@@ -169,7 +161,6 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
         OnPropertyChanged(nameof(CanRemoveSelectedInput));
         OnPropertyChanged(nameof(CanMoveInputUp));
         OnPropertyChanged(nameof(CanMoveInputDown));
-        _ = LoadSelectedPreviewAsync(value);
     }
 
     partial void OnIsBusyChanged(bool value) => RefreshWorkspaceState();
@@ -299,6 +290,5 @@ public sealed partial class StackPageViewModel : ObservableObject, IAsyncDisposa
     {
         StartStackCommand.NotifyCanExecuteChanged();
         CancelCommand.NotifyCanExecuteChanged();
-        RefreshControlCommands();
     }
 }

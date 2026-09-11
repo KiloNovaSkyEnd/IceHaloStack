@@ -80,15 +80,8 @@ class StackService:
             self.progress(event)
 
     def _check_cancelled(self) -> None:
-        waiter = getattr(self.cancellation, "wait_if_paused", None)
-        if waiter is not None:
-            waiter()
         if _is_cancelled(self.cancellation):
             raise ServiceCancelled("堆栈处理已取消。")
-
-    def _use_current_requested(self) -> bool:
-        checker = getattr(self.cancellation, "use_current_requested", None)
-        return bool(checker is not None and checker())
 
     def iter_masters(self, request: StackRequest, provider: FrameProvider | Callable[..., Any]):
         """Yield one float32 RGB master per requested group."""
@@ -105,7 +98,6 @@ class StackService:
                 raise ValueError(f"第 {group_index} 个堆栈分组为空。")
             accumulator = StackAccumulator(method, self.backend_info, cupy_module)
             expected_shape = None
-            used_count = 0
             for index in group:
                 self._check_cancelled()
                 image = np.asarray(
@@ -121,9 +113,6 @@ class StackService:
                         f"堆栈分组中的帧尺寸不一致：{expected_shape} 与 {image.shape}。"
                     )
                 accumulator.add(image)
-                used_count += 1
-                if self._use_current_requested():
-                    break
             master = accumulator.finish()
             self._check_cancelled()
             self._emit(
@@ -134,14 +123,12 @@ class StackService:
                     f"完成堆栈 {group_index}/{total}",
                     {
                         "group_index": group_index - 1,
-                        "frame_count": used_count,
+                        "frame_count": len(group),
                         "backend": self.backend_info.to_dict(),
                     },
                 )
             )
             yield master.astype(np.float32, copy=False)
-            if self._use_current_requested():
-                break
 
     def stack(self, request: StackRequest, provider: FrameProvider | Callable[..., Any]):
         """Materialize :meth:`iter_masters` as a list for simple callers."""

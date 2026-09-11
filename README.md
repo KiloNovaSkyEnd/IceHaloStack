@@ -41,7 +41,7 @@ masters = stacker.stack(StackRequest(((0, 1, 2),), method="mean"), decoder)
 - `stack_files` IPC 在堆栈后调用规范 Python 处理服务，不在 C# 中复制图像算法。
 - 堆栈延时新增 MP4 H.264、MOV H.264、MOV ProRes 和 GIF 编码；最终帧通过 FFmpeg stdin 直接传输，不建立视频帧磁盘缓存。
 - WinUI 优先发现 IceHaloStack 私有 Python 运行时；无需额外配置即可连接包含完整依赖的引擎。
-- WinUI 主包不再重复携带 Classic Python 运行时；旧版工作区保留在源码中，后续作为独立低版本 Windows 构建维护。
+- 尚未原生迁移的节点图、曝光/白平衡关键帧、存储管理等功能可从 WinUI 一键打开完整经典工作区，功能不会在迁移期丢失。
 - `StackPageViewModel` 按状态、队列、输出命名和引擎任务拆分；处理参数、视频参数、控件模型和启动器各自独立，新增架构测试阻止重复类型和巨型 WinUI ViewModel 回归。
 
 `TimelapseWindow` 和 `NodeWindow` 的批处理已经接入 `ImageProcessingService`：Tk 线程、队列、性能监控、Shared Node DAG 和 Async Output 生命周期保持原样，单帧像素处理通过服务调用完成。`ihs.services.ipc.AsyncJsonLineHost` 提供本地 JSON-lines 子进程接口（固定 UTF-8）：每行一个请求，先立即确认 `start`，随后按 `task_id` 推送 progress/result，并持续接受 `cancel`；同步 `JsonLineHost` 仍保留给简单脚本调用。
