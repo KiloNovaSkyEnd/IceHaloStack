@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="IceHaloStack_WinUI.Controls.ClassicPreviewPane"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid RowSpacing="6" Padding="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="112" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="预览 / Preview" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                <Button Content="适应" Padding="8,3" Click="Fit_Click" />
+                <Button Content="25%" Padding="8,3" Tag="0.25" Click="Zoom_Click" />
+                <Button Content="50%" Padding="8,3" Tag="0.5" Click="Zoom_Click" />
+                <Button Content="100%" Padding="8,3" Tag="1" Click="Zoom_Click" />
+                <Button Content="200%" Padding="8,3" Tag="2" Click="Zoom_Click" />
+            </StackPanel>
+        </Grid>
+        <Border Grid.Row="1" Background="Black" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+            <ScrollViewer x:Name="PreviewScroller" ZoomMode="Enabled"
+                          MinZoomFactor="0.1" MaxZoomFactor="8"
+                          HorizontalScrollMode="Enabled" VerticalScrollMode="Enabled"
+                          HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Image x:Name="PreviewImage"
+                       Source="{Binding ViewModel.PreviewSource, ElementName=Root}"
+                       Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </ScrollViewer>
+        </Border>
+        <Border Grid.Row="2" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" Padding="8">
+            <Grid RowSpacing="4">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <TextBlock Text="直方图 / Histogram" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding ViewModel.HistogramBins, ElementName=Root}"
+                              HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Rectangle Width="4" Height="{Binding}" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                       VerticalAlignment="Bottom" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

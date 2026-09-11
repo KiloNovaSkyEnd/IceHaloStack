@@ -19,7 +19,11 @@ def h264_video_filter() -> str:
 def h264_encode_args(fps) -> list[str]:
     """Return a CFR, short-GOP H.264 profile accepted by Windows hardware decoders."""
     rate = max(1.0, float(fps))
-    gop = max(1, int(round(rate * 2.0)))
+    gop = max(1, int(round(rate)))
+    # UHD above 30 fps exceeds the Level 5.1 macroblock-rate envelope. Marking
+    # such a stream as 5.1 can make Windows hardware decoders show partial old
+    # reference frames (tearing/mosaic) while software decoders still look fine.
+    level = "5.2" if rate > 30.0 else "5.1"
     return [
         "-vf", h264_video_filter(),
         "-fps_mode", "cfr",
@@ -28,13 +32,17 @@ def h264_encode_args(fps) -> list[str]:
         "-tune", "stillimage",
         "-crf", "16",
         "-profile:v", "high",
-        "-level:v", "5.1",
+        "-level:v", level,
         "-g", str(gop),
-        "-keyint_min", str(max(1, int(round(rate)))),
-        "-bf", "2",
-        "-refs", "3",
+        "-keyint_min", str(gop),
+        "-sc_threshold", "0",
+        # A closed one-second GOP with one reference and no B-frames is larger
+        # than the previous stream, but avoids fragile reference-frame chains
+        # in several Windows Media Foundation / GPU decoder combinations.
+        "-bf", "0",
+        "-refs", "1",
         "-pix_fmt", "yuv420p",
-        "-x264-params", "colorprim=bt709:transfer=bt709:colormatrix=bt709:force-cfr=1",
+        "-x264-params", "open-gop=0:repeat-headers=1:colorprim=bt709:transfer=bt709:colormatrix=bt709:force-cfr=1",
         "-color_range", "tv",
         "-color_primaries", "bt709",
         "-color_trc", "bt709",

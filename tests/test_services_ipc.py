@@ -73,6 +73,27 @@ class ServicesIPCTest(unittest.TestCase):
             self.assertTrue(events)
             self.assertEqual(events[-1].phase, "export")
 
+    def test_image_preview_returns_bounded_image_and_histogram(self):
+        with tempfile.TemporaryDirectory(prefix="ihs_ipc_preview_") as folder:
+            root = Path(folder)
+            source = root / "source.tif"
+            target = root / "preview.png"
+            save_tiff(source, self.image, float32=True)
+            result = JsonServiceAdapter().dispatch({
+                "id": "preview",
+                "method": "image_preview",
+                "params": {
+                    "input_path": str(source),
+                    "output_path": str(target),
+                    "max_side": 128,
+                },
+            })
+            self.assertTrue(target.is_file())
+            self.assertEqual(result["shape"], [8, 10, 3])
+            self.assertEqual(len(result["histogram"]), 64)
+            self.assertAlmostEqual(max(result["histogram"]), 1.0)
+            self.assertLessEqual(max(result["preview_shape"][:2]), 128)
+
     def test_json_line_host_streams_progress_then_response(self):
         input_stream = io.StringIO('{"id":1,"method":"ping"}\n')
         output_stream = io.StringIO()
@@ -264,6 +285,26 @@ class ServicesIPCTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertTrue(result["cancelled"])
             self.assertEqual(client.task_status(task_id), "cancelled")
+
+    def test_task_manager_pause_resume_and_use_current_controls(self):
+        entered = threading.Event()
+        finish = threading.Event()
+
+        def runner(_operation, _params, cancellation, _progress):
+            entered.set()
+            while not cancellation.use_current_requested():
+                cancellation.wait_if_paused()
+                time.sleep(0.002)
+            finish.set()
+            return {"partial": True}
+
+        manager = JsonTaskManager(runner=runner)
+        manager.start("controlled", "custom")
+        self.assertTrue(entered.wait(1))
+        self.assertEqual(manager.pause("controlled"), "paused")
+        self.assertEqual(manager.resume("controlled"), "running")
+        self.assertEqual(manager.use_current("controlled"), "finishing-current")
+        self.assertTrue(finish.wait(1))
 
     def test_ipc_client_reports_malformed_child_output(self):
         code = "import sys; sys.stdout.write('not-json\\n'); sys.stdout.flush()"

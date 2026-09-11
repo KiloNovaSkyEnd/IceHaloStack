@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="IceHaloStack_WinUI.Controls.ParameterSectionControl"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels">
+    <Expander Header="{Binding Section.Title, ElementName=Root}"
+              IsExpanded="{Binding Section.IsExpanded, ElementName=Root, Mode=TwoWay}"
+              Margin="0,0,0,5">
+        <ItemsControl ItemsSource="{Binding Section.Parameters, ElementName=Root}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="viewModels:ProcessingParameter">
+                    <Grid ColumnSpacing="7" Padding="0,3" DoubleTapped="Parameter_DoubleTapped">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="128" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="92" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Slider Grid.Column="1" Minimum="{x:Bind Minimum}" Maximum="{x:Bind Maximum}"
+                                StepFrequency="{x:Bind Step}" Value="{x:Bind Value, Mode=TwoWay}" />
+                        <NumberBox Grid.Column="2" Minimum="{x:Bind Minimum}" Maximum="{x:Bind Maximum}"
+                                   SmallChange="{x:Bind Step}" SpinButtonPlacementMode="Compact"
+                                   Value="{x:Bind Value, Mode=TwoWay}" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Expander>
+</UserControl>

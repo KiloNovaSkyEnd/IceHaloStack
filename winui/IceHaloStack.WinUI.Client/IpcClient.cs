@@ -216,17 +216,33 @@ public sealed class IpcClient : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(taskId))
             throw new IpcProtocolException("task_id 不能为空。");
         taskId = taskId.Trim();
+        return await ControlTaskAsync("cancel", taskId, timeout, cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<IpcCancelAck> PauseTaskAsync(string taskId, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        => ControlTaskAsync("pause", taskId, timeout, cancellationToken);
+
+    public Task<IpcCancelAck> ResumeTaskAsync(string taskId, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        => ControlTaskAsync("resume", taskId, timeout, cancellationToken);
+
+    public Task<IpcCancelAck> UseCurrentTaskAsync(string taskId, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+        => ControlTaskAsync("use_current", taskId, timeout, cancellationToken);
+
+    private async Task<IpcCancelAck> ControlTaskAsync(string method, string taskId, TimeSpan? timeout, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(taskId)) throw new IpcProtocolException("task_id 不能为空。");
+        taskId = taskId.Trim();
         var result = await RequestAsync(
-            "cancel",
+            method,
             new Dictionary<string, object?> { ["task_id"] = taskId },
             timeout,
             cancellationToken).ConfigureAwait(false);
         if (result is null)
-            throw new IpcProtocolException("cancel 响应为空。");
+            throw new IpcProtocolException($"{method} 响应为空。");
 
         var responseTaskId = GetRequiredString(result.Value, "task_id");
         if (!string.Equals(responseTaskId, taskId, StringComparison.Ordinal))
-            throw new IpcProtocolException("cancel 响应中的 task_id 不匹配。");
+            throw new IpcProtocolException($"{method} 响应中的 task_id 不匹配。");
         var rawState = result.Value.TryGetProperty("state", out var state)
             ? state.GetString() ?? "cancelling"
             : "cancelling";
@@ -656,6 +672,8 @@ public sealed class IpcClient : IAsyncDisposable
             "starting" => IpcTaskState.Starting,
             "started" => IpcTaskState.Started,
             "running" => IpcTaskState.Running,
+            "paused" => IpcTaskState.Paused,
+            "finishing-current" => IpcTaskState.FinishingCurrent,
             "cancelling" => IpcTaskState.Cancelling,
             "completed" => IpcTaskState.Completed,
             "cancelled" => IpcTaskState.Cancelled,

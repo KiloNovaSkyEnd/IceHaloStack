@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="IceHaloStack_WinUI.Controls.ClassicFramesPane"
+    x:Name="Root"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels">
+    <Grid RowSpacing="6" Padding="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="帧 / Frames" Style="{StaticResource BodyStrongTextBlockStyle}" />
+            <TextBlock Grid.Column="1" Text="{Binding ViewModel.InputCount, ElementName=Root}" Opacity="0.7" />
+        </Grid>
+
+        <ListView Grid.Row="1"
+                  ItemsSource="{Binding ViewModel.Inputs, ElementName=Root}"
+                  SelectedItem="{Binding ViewModel.SelectedInput, ElementName=Root, Mode=TwoWay}"
+                  SelectionMode="Single">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate><ItemsStackPanel Orientation="Vertical" /></ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="viewModels:StackInputItem">
+                    <Grid Height="48" ColumnSpacing="7">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="44" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Index}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                        <Border Grid.Column="1" Background="Black">
+                            <Image Source="{x:Bind Thumbnail, Mode=OneWay}"
+                                   Stretch="UniformToFill"
+                                   Loaded="Thumbnail_Loaded" />
+                        </Border>
+                        <TextBlock Grid.Column="2" Text="{x:Bind FileName}" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind Path}" />
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <Grid Grid.Row="2" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="按原顺序参与堆栈" FontSize="12" Opacity="0.65" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="↑" Click="MoveUp_Click" />
+            <Button Grid.Column="2" Content="↓" Click="MoveDown_Click" />
+        </Grid>
+    </Grid>
+</UserControl>

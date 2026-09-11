@@ -57,11 +57,18 @@ _unused_backend_modules = (
     'cupy_backends\\cuda\\libs\\cutensor.',
     'cupy_backends\\cuda\\libs\\nccl.',
 )
+_unused_binary_fragments = (
+    'cupyx\\',
+    'cupy\\cuda\\thrust.',
+    'opencv_videoio_ffmpeg',
+    'pil\\_avif.',
+)
 def _keep_stack_binary(entry):
     destination = entry[0].lower().replace('/', '\\')
     filename = destination.rsplit('\\', 1)[-1]
     return not any(filename.startswith(name) for name in _unused_cuda_names) \
-        and not any(name in destination for name in _unused_backend_modules)
+        and not any(name in destination for name in _unused_backend_modules) \
+        and not any(name in destination for name in _unused_binary_fragments)
 
 a.binaries = [entry for entry in a.binaries if _keep_stack_binary(entry)]
 pyz = PYZ(a.pure)

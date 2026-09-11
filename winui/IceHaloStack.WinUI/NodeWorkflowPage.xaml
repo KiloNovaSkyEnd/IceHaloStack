@@ -56,10 +56,10 @@
 
                     <Expander Header="去闪 / 曝光 / 白平衡">
                         <StackPanel Spacing="5" Padding="7">
-                            <ToggleSwitch Header="去闪" IsOn="{x:Bind ViewModel.DeflickerEnabled, Mode=TwoWay}"/>
-                            <ToggleSwitch Header="曝光平滑" IsOn="{x:Bind ViewModel.ExposureSmoothingEnabled, Mode=TwoWay}"/>
-                            <ToggleSwitch Header="白平衡平滑" IsOn="{x:Bind ViewModel.WhiteBalanceSmoothingEnabled, Mode=TwoWay}"/>
-                            <Button Content="打开曝光与白平衡工作区…" IsEnabled="False" ToolTipService.ToolTip="关键帧编辑器迁移中"/>
+                            <ToggleSwitch Header="去闪" IsOn="{x:Bind ViewModel.Ewb.DeflickerEnabled, Mode=TwoWay}"/>
+                            <ToggleSwitch Header="曝光平滑" IsOn="{x:Bind ViewModel.Ewb.ExposureSmoothingEnabled, Mode=TwoWay}"/>
+                            <ToggleSwitch Header="白平衡平滑" IsOn="{x:Bind ViewModel.Ewb.WhiteBalanceSmoothingEnabled, Mode=TwoWay}"/>
+                            <Button Content="打开曝光与白平衡工作区…" Click="OpenEwb_Click"/>
                         </StackPanel>
                     </Expander>
 
@@ -104,6 +104,8 @@
                             </Grid>
                             <Button Content="开始批量导出所有启用流程" Style="{StaticResource AccentButtonStyle}"
                                     Command="{x:Bind ViewModel.StartExportCommand}"/>
+                            <TextBlock Text="{x:Bind ViewModel.ExportBlockReason, Mode=OneWay}"
+                                       TextWrapping="Wrap" FontSize="11" Opacity="0.65" />
                             <Button Content="取消" Command="{x:Bind ViewModel.CancelCommand}"/>
                         </StackPanel>
                     </Expander>

@@ -32,6 +32,12 @@ public sealed partial class NodeWorkflowPage : Page
         if (Frame?.CanGoBack == true) Frame.GoBack();
     }
 
+    private void OpenEwb_Click(object sender, RoutedEventArgs e)
+    {
+        ViewModel.PrepareEwbWorkspace();
+        Frame?.Navigate(typeof(EwbKeyframePage), ViewModel.Ewb);
+    }
+
     private async void PickInputs_Click(object sender, RoutedEventArgs e)
     {
         var picker = new FileOpenPicker();
@@ -60,7 +66,7 @@ public sealed partial class NodeWorkflowPage : Page
     private async void OnNodeInvoked(object? sender, NodeWorkflowNode node)
     {
         if (ViewModel.SelectedFlow is null) return;
-        var editor = new ProcessingSettingsControl { ViewModel = ViewModel.SelectedFlow.Processing };
+        var editor = NodeParameterEditorFactory.Create(node, ViewModel.SelectedFlow, ViewModel.Queue);
         var dialog = new ContentDialog
         {
             XamlRoot = XamlRoot,

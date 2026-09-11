@@ -92,9 +92,21 @@ public sealed partial class ProcessingSettingsViewModel : ObservableObject
                 Parameter("channel_noise_strength", "Noise protection %", 0, 100, 1, 30),
                 Parameter("channel_noise_radius", "Noise radius px", 0.1, 10, 0.1, 0.8)),
         };
+        StretchSection = Sections[0];
+        BaseSections = Sections.Skip(1).Take(9).ToArray();
+        DetailSections = new[] { Sections[10], Sections[11], Sections[13], Sections[14] };
+        CurvesSection = Sections[12];
+        ChannelSection = Sections[15];
+        InitializeHistory();
     }
 
     public ObservableCollection<ProcessingSection> Sections { get; }
+    public CurveEditorViewModel CurveEditor { get; } = new();
+    public ProcessingSection StretchSection { get; }
+    public IReadOnlyList<ProcessingSection> BaseSections { get; }
+    public IReadOnlyList<ProcessingSection> DetailSections { get; }
+    public ProcessingSection CurvesSection { get; }
+    public ProcessingSection ChannelSection { get; }
     public IReadOnlyList<string> HighPassModes { get; } = ["Overlay", "Soft Light", "Linear Light"];
     public IReadOnlyList<string> EmbossStyles { get; } = ["Photoshop Emboss", "Color Emboss", "Gray Emboss"];
     public IReadOnlyList<string> EmbossBlendModes { get; } = ["Normal", "Overlay", "Soft Light", "Linear Light"];
@@ -128,6 +140,7 @@ public sealed partial class ProcessingSettingsViewModel : ObservableObject
         EmbossStyle = "Photoshop Emboss";
         EmbossBlendMode = "Normal";
         ChannelOutput = "灰色";
+        CurveEditor.ResetAll();
     }
 
     private ProcessingParameter Find(string key) => Sections

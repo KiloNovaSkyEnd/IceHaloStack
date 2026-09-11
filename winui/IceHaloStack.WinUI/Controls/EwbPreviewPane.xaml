@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl x:Class="IceHaloStack_WinUI.Controls.EwbPreviewPane"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:IceHaloStack_WinUI.Controls">
+    <Border Padding="7" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <Grid RowSpacing="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="120"/>
+                <RowDefinition Height="92"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="关键帧曝光 / 白平衡预览" Style="{StaticResource SubtitleTextBlockStyle}"/>
+                <ComboBox x:Name="ViewModeBox" Grid.Column="1" SelectedIndex="1" SelectionChanged="ViewMode_Changed" Margin="0,0,6,0">
+                    <ComboBoxItem Content="原始"/><ComboBoxItem Content="修正后"/><ComboBoxItem Content="左右对比"/>
+                </ComboBox>
+                <Button Grid.Column="2" Content="刷新预览" Command="{Binding PreviewCommand}"/>
+            </Grid>
+            <Grid Grid.Row="1" ColumnSpacing="3" Background="#101010">
+                <Grid.ColumnDefinitions><ColumnDefinition x:Name="OriginalColumn" Width="0"/><ColumnDefinition x:Name="CorrectedColumn" Width="*"/></Grid.ColumnDefinitions>
+                <ScrollViewer ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="4" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Image Source="{Binding OriginalPreviewSource}" Stretch="Uniform"/>
+                </ScrollViewer>
+                <ScrollViewer Grid.Column="1" ZoomMode="Enabled" MinZoomFactor="0.1" MaxZoomFactor="4" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                    <Image Source="{Binding PreviewSource}" Stretch="Uniform"/>
+                </ScrollViewer>
+            </Grid>
+            <Grid Grid.Row="2">
+                <controls:EwbTrendChartControl/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Spacing="8" Margin="5">
+                    <TextBlock Text="原始" Foreground="Gray"/><TextBlock Text="平滑趋势" Foreground="DeepSkyBlue"/><TextBlock Text="关键帧目标" Foreground="Orange"/>
+                </StackPanel>
+            </Grid>
+            <ListView x:Name="ThumbnailList" Grid.Row="3" ItemsSource="{Binding Frames}" SelectedItem="{Binding SelectedFrame, Mode=TwoWay}"
+                      SelectionMode="Single" SelectionChanged="ThumbnailList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListView.ItemsPanel>
+                <ListView.ItemTemplate><DataTemplate>
+                    <StackPanel Width="86" Spacing="2">
+                        <Border Height="58" Background="#181818"><Image Source="{Binding Thumbnail}" Stretch="UniformToFill" Loaded="Thumbnail_Loaded"/></Border>
+                        <TextBlock Text="{Binding FrameNumber}" HorizontalAlignment="Center"/>
+                    </StackPanel>
+                </DataTemplate></ListView.ItemTemplate>
+            </ListView>
+            <Grid Grid.Row="4" ColumnSpacing="6">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <Button Content="上一帧" Command="{Binding PreviousFrameCommand}"/>
+                <Button Grid.Column="1" x:Name="PlayButton" Content="播放" Click="Play_Click"/>
+                <Slider Grid.Column="2" Minimum="1" Maximum="{Binding Frames.Count}" StepFrequency="1" Value="{Binding CurrentFrameNumber, Mode=TwoWay}"/>
+                <NumberBox Grid.Column="3" Minimum="1" Maximum="60" Value="{Binding PlaybackFps, Mode=TwoWay}" ValueChanged="PlaybackFps_Changed" SpinButtonPlacementMode="Compact" Header="FPS"/>
+                <Button Grid.Column="4" Content="下一帧" Command="{Binding NextFrameCommand}"/>
+            </Grid>
+            <TextBlock Grid.Row="5" Text="曝光、色温和色调三组趋势。预览与批量导出使用同一修正表。" Opacity="0.65" TextWrapping="Wrap"/>
+        </Grid>
+    </Border>
+</UserControl>

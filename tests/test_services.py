@@ -116,6 +116,32 @@ class ServicesTest(unittest.TestCase):
         with self.assertRaises(ServiceCancelled):
             StackService(cancellation=source).stack(StackRequest(((0,),)), lambda index: self.image)
 
+    def test_stack_service_use_current_finishes_partial_group(self):
+        class Token:
+            used = False
+            def wait_if_paused(self):
+                return None
+            def is_cancelled(self):
+                return False
+            def use_current_requested(self):
+                return self.used
+
+        token = Token()
+        decoded = []
+        def decode(index):
+            decoded.append(index)
+            if len(decoded) == 2:
+                token.used = True
+            return self.image * (index + 1)
+
+        events = []
+        result = StackService(progress=events.append, cancellation=token).stack(
+            StackRequest(((0, 1, 2), (2, 1, 0)), "mean"), decode)
+        self.assertEqual(decoded, [0, 1])
+        self.assertEqual(len(result), 1)
+        np.testing.assert_allclose(result[0], self.image * 1.5)
+        self.assertEqual(events[0].metadata["frame_count"], 2)
+
     def test_export_service_is_atomic_and_readable(self):
         events = []
         with tempfile.TemporaryDirectory(prefix="ihs_services_") as folder:

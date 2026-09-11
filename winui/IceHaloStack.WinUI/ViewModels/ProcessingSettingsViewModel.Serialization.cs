@@ -61,15 +61,7 @@ public sealed partial class ProcessingSettingsViewModel
     {
         if (!EnableCurves)
             return [];
-        var contrast = Find("curve_contrast").Value / 100.0;
-        var shadow = Math.Clamp(0.25 - contrast * 0.18, 0.0, 1.0);
-        var highlight = Math.Clamp(0.75 + contrast * 0.18, 0.0, 1.0);
-        var identity = new[] { new[] { 0.0, 0.0 }, new[] { 1.0, 1.0 } };
-        return new Dictionary<string, object?>
-        {
-            ["RGB"] = new[] { new[] { 0.0, 0.0 }, new[] { 0.25, shadow }, new[] { 0.75, highlight }, new[] { 1.0, 1.0 } },
-            ["红色"] = identity, ["绿色"] = identity, ["蓝色"] = identity, ["亮度"] = identity,
-        };
+        return CurveEditor.ToIpcCurvePoints();
     }
 
     private static void AddStage(

@@ -28,6 +28,10 @@ public sealed partial class MainWindow : Window
         _performanceMonitor.SnapshotUpdated += OnPerformanceSnapshotUpdated;
         _performanceMonitor.Start(RootFrame);
         Closed += OnClosed;
+        RootFrame.Navigated += (_, _) =>
+        {
+            if (RootFrame.Content is FrameworkElement page) UiPreferencesService.Current.Apply(page);
+        };
         RootFrame.Navigate(typeof(MainPage));
     }
 

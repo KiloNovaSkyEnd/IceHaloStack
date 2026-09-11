@@ -16,7 +16,7 @@ import ihs.output_pipeline as output_pipeline
 
 
 class VideoOutputCommandTest(unittest.TestCase):
-    def test_v0_9_6_7_command_contract(self):
+    def test_desktop_safe_h264_command_contract(self):
         root = Path("export")
         sequence = root / "sequence"
         pattern = sequence / "frame_%06d.png"
@@ -42,7 +42,10 @@ class VideoOutputCommandTest(unittest.TestCase):
         self.assertIn("avc1", h264)
         self.assertIn("min(iw,3840)", h264[h264.index("-vf") + 1])
         self.assertIn("min(ih,2160)", h264[h264.index("-vf") + 1])
-        self.assertEqual(h264[h264.index("-g") + 1], "48")
+        self.assertEqual(h264[h264.index("-g") + 1], "24")
+        self.assertEqual(h264[h264.index("-bf") + 1], "0")
+        self.assertEqual(h264[h264.index("-refs") + 1], "1")
+        self.assertEqual(h264[h264.index("-sc_threshold") + 1], "0")
         self.assertEqual(plans["MOV ProRes"]["encode_command"][-6:-1], [
             "prores_ks", "-profile:v", "3", "-pix_fmt", "yuv422p10le",
         ])
@@ -51,6 +54,11 @@ class VideoOutputCommandTest(unittest.TestCase):
         self.assertIsNone(output_pipeline._build_ffmpeg_video_plan(
             "ffmpeg", "unknown", 24, pattern, root, "halo", sequence
         ))
+
+    def test_uhd_high_frame_rate_uses_h264_level_5_2(self):
+        args = output_pipeline.h264_encode_args(60)
+        self.assertEqual(args[args.index("-level:v") + 1], "5.2")
+        self.assertEqual(args[args.index("-g") + 1], "60")
 
     def test_runner_preserves_subprocess_and_performance_contract(self):
         class Perf:

@@ -17,7 +17,7 @@ public sealed partial class NodeWorkflowViewModel
         IsBusy = true; Phase = "预览"; Status = "正在异步生成节点流程预览…";
         try
         {
-            var client = await GetClientAsync().ConfigureAwait(false);
+            var client = await _engineClientProvider.GetClientAsync().ConfigureAwait(false);
             _task?.Dispose();
             var task = new IpcTaskViewModel(client, $"preview-{Guid.NewGuid():N}", DispatchToUiAsync);
             task.PropertyChanged += OnTaskChanged;
@@ -68,7 +68,7 @@ public sealed partial class NodeWorkflowViewModel
         Phase = "连接"; Status = "正在连接节点工作流引擎…";
         try
         {
-            var client = await GetClientAsync().ConfigureAwait(false);
+            var client = await _engineClientProvider.GetClientAsync().ConfigureAwait(false);
             _task?.Dispose();
             var task = new IpcTaskViewModel(client, $"node-{Guid.NewGuid():N}", DispatchToUiAsync);
             task.PropertyChanged += OnTaskChanged;
@@ -97,17 +97,6 @@ public sealed partial class NodeWorkflowViewModel
     {
         if (_task is null || !CanCancel) return;
         await _task.CancelAsync().ConfigureAwait(false);
-    }
-
-    private async Task<IpcClient> GetClientAsync()
-    {
-        if (_client is { IsAlive: true }) return _client;
-        if (_client is not null) await _client.DisposeAsync().ConfigureAwait(false);
-        var client = EngineClientFactory.CreateDevelopmentClient();
-        await client.StartAsync().ConfigureAwait(false);
-        await client.PingAsync(TimeSpan.FromSeconds(12)).ConfigureAwait(false);
-        _client = client;
-        return client;
     }
 
     private async Task ObserveResultAsync(IpcClient client, IpcTaskViewModel task)

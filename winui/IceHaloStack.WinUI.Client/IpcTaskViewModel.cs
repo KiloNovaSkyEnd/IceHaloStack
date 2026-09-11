@@ -56,6 +56,8 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
         IpcTaskState.Starting => "Starting",
         IpcTaskState.Started => "Started",
         IpcTaskState.Running => "Running",
+        IpcTaskState.Paused => "Paused",
+        IpcTaskState.FinishingCurrent => "Finishing current",
         IpcTaskState.Cancelling => "Cancelling",
         IpcTaskState.Completed => "Completed",
         IpcTaskState.Cancelled => "Cancelled",
@@ -117,12 +119,17 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
         => State is IpcTaskState.Starting
             or IpcTaskState.Started
             or IpcTaskState.Running
+            or IpcTaskState.Paused
+            or IpcTaskState.FinishingCurrent
             or IpcTaskState.Cancelling;
 
     public bool CanCancel
         => State is IpcTaskState.Starting
             or IpcTaskState.Started
-            or IpcTaskState.Running;
+            or IpcTaskState.Running
+            or IpcTaskState.Paused;
+
+    public bool IsPaused => State == IpcTaskState.Paused;
 
     public string? Error
     {
@@ -191,6 +198,21 @@ public sealed class IpcTaskViewModel : INotifyPropertyChanged, IDisposable
             return;
         await _client.CancelTaskAsync(TaskId, timeout, cancellationToken).ConfigureAwait(false);
         PostToUi(() => State = IpcTaskState.Cancelling);
+    }
+
+    public async Task SetPausedAsync(bool paused, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        if (!IsBusy) return;
+        if (paused) await _client.PauseTaskAsync(TaskId, timeout, cancellationToken).ConfigureAwait(false);
+        else await _client.ResumeTaskAsync(TaskId, timeout, cancellationToken).ConfigureAwait(false);
+        PostToUi(() => State = paused ? IpcTaskState.Paused : IpcTaskState.Running);
+    }
+
+    public async Task UseCurrentAsync(TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        if (!IsBusy) return;
+        await _client.UseCurrentTaskAsync(TaskId, timeout, cancellationToken).ConfigureAwait(false);
+        PostToUi(() => State = IpcTaskState.FinishingCurrent);
     }
 
     public void Dispose()

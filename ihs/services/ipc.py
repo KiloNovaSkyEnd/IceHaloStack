@@ -21,6 +21,7 @@ from .contracts import (
     CancellationToken,
     ExportRequest,
     PipelineRequest,
+    PreviewRequest,
     ProgressCallback,
     ProgressEvent,
     ServiceCancelled,
@@ -120,20 +121,28 @@ class JsonServiceAdapter:
             return {
                 "protocol": self.PROTOCOL,
                 "version": VERSION,
-                "capabilities": ["ping", "compute_capabilities", "process_file", "stack_files", "node_workflow_export", "node_workflow_preview",
-                                 "node_workflow_inspect", "ewb_build_corrections", "storage_inspect"],
+                "capabilities": ["ping", "compute_capabilities", "image_preview", "process_file", "stack_files", "node_workflow_export", "node_workflow_preview",
+                                 "node_workflow_inspect", "ewb_analyze_frames", "ewb_build_corrections", "ewb_resmooth_corrections", "ewb_preview_frame", "storage_inspect"],
             }
         if request.method == "compute_capabilities":
             return inspect_backends(refresh=bool(request.params.get("refresh", False)))
         if request.method == "node_workflow_inspect":
             return NodeWorkflowService().inspect(request.params.get("flow", {}))
         if request.method == "ewb_build_corrections":
-            return ExposureSmoothingService().build(request.params)
+            return ExposureSmoothingService(progress=self._emit, cancellation=self.cancellation).build(request.params)
+        if request.method == "ewb_analyze_frames":
+            return ExposureSmoothingService(progress=self._emit, cancellation=self.cancellation).analyze(request.params)
+        if request.method == "ewb_preview_frame":
+            return ExposureSmoothingService(progress=self._emit, cancellation=self.cancellation).preview(request.params)
+        if request.method == "ewb_resmooth_corrections":
+            return ExposureSmoothingService(progress=self._emit, cancellation=self.cancellation).resmooth(request.params)
         if request.method == "storage_inspect":
             paths = request.params.get("paths", [])
             if not isinstance(paths, list):
                 raise JsonProtocolError("storage_inspect.paths 必须是数组。")
             return StorageInspectionService().inspect(paths)
+        if request.method == "image_preview":
+            return self._image_preview(request.params)
         if request.method == "process_file":
             return self._process_file(request.params)
         if request.method == "stack_files":
@@ -143,6 +152,39 @@ class JsonServiceAdapter:
         if request.method == "node_workflow_preview":
             return NodeWorkflowPreviewService(progress=self._emit, cancellation=self.cancellation).save(request.params)
         raise JsonProtocolError(f"不支持的 method：{request.method}。")
+
+    def _image_preview(self, params: Mapping[str, Any]) -> dict[str, Any]:
+        import numpy as np
+        from ..image_ops import auto_stretch_for_display
+
+        input_path = params.get("input_path")
+        output_path = params.get("output_path")
+        if not isinstance(input_path, (str, Path)) or not isinstance(output_path, (str, Path)):
+            raise JsonProtocolError("image_preview 需要 input_path 和 output_path。")
+        max_side = max(128, min(4096, int(params.get("max_side", 2048))))
+        processor = ImageProcessingService(progress=self._emit, cancellation=self.cancellation)
+        image = processor.load(input_path)
+        preview, scale = processor.preview(PreviewRequest(image, {}, max_side=max_side))
+        if bool(params.get("auto_stretch", False)):
+            preview = auto_stretch_for_display(preview)
+        luminance = np.clip(
+            preview[..., 0] * 0.2126 + preview[..., 1] * 0.7152 + preview[..., 2] * 0.0722,
+            0.0,
+            1.0,
+        )
+        histogram = np.histogram(luminance, bins=64, range=(0.0, 1.0))[0]
+        peak = max(1, int(histogram.max(initial=0)))
+        normalized = [round(float(value) / peak, 6) for value in histogram]
+        saved = ExportService(progress=self._emit, cancellation=self.cancellation).save(
+            ExportRequest(output_path, preview, "PNG 8-bit", "Fast")
+        )
+        return {
+            "output_path": str(saved),
+            "shape": [int(value) for value in image.shape],
+            "preview_shape": [int(value) for value in preview.shape],
+            "scale": float(scale),
+            "histogram": normalized,
+        }
 
     def _process_file(self, params: Mapping[str, Any]) -> dict[str, Any]:
         input_path = params.get("input_path")
@@ -294,7 +336,7 @@ class JsonTaskManager:
         operation = str(operation).strip()
         if not task_id:
             raise JsonProtocolError("task_id 不能为空。")
-        if not operation or operation in {"start", "cancel"}:
+        if not operation or operation in {"start", "cancel", "pause", "resume", "use_current"}:
             raise JsonProtocolError("operation 必须是实际服务方法。")
         with self._lock:
             old = self._tasks.get(task_id)
@@ -352,6 +394,36 @@ class JsonTaskManager:
             record.state = "cancelling"
             return record.state
 
+    def pause(self, task_id: str) -> str:
+        with self._lock:
+            record = self._active(task_id)
+            record.cancellation.pause()
+            record.state = "paused"
+            return record.state
+
+    def resume(self, task_id: str) -> str:
+        with self._lock:
+            record = self._active(task_id)
+            record.cancellation.resume()
+            record.state = "running"
+            return record.state
+
+    def use_current(self, task_id: str) -> str:
+        with self._lock:
+            record = self._active(task_id)
+            record.cancellation.request_use_current()
+            record.state = "finishing-current"
+            return record.state
+
+    def _active(self, task_id: str) -> _TaskRecord:
+        task_id = str(task_id).strip()
+        record = self._tasks.get(task_id)
+        if record is None:
+            raise JsonProtocolError(f"不存在的 task_id：{task_id}。")
+        if not record.thread.is_alive():
+            raise JsonProtocolError(f"任务已结束：{task_id}。")
+        return record
+
     def poll_events(self, *, timeout: float = 0.0):
         try:
             return self._events.get(timeout=max(0.0, float(timeout)))
@@ -368,12 +440,31 @@ class _CancellationAdapter:
 
     def __init__(self):
         self._event = threading.Event()
+        self._paused = threading.Event()
+        self._use_current = threading.Event()
 
     def cancel(self):
         self._event.set()
 
     def is_cancelled(self) -> bool:
         return self._event.is_set()
+
+    def pause(self):
+        self._paused.set()
+
+    def resume(self):
+        self._paused.clear()
+
+    def wait_if_paused(self):
+        while self._paused.is_set() and not self._event.wait(0.05):
+            pass
+
+    def request_use_current(self):
+        self._use_current.set()
+        self._paused.clear()
+
+    def use_current_requested(self) -> bool:
+        return self._use_current.is_set()
 
     def raise_if_cancelled(self):
         if self.is_cancelled():
@@ -484,19 +575,19 @@ class AsyncJsonLineHost(JsonLineHost):
                     raise JsonProtocolError("start.params 必须是 JSON 对象。")
                 self.tasks.start(task_id, operation, operation_params)
                 return JsonResponse(request_id, True, {"task_id": task_id, "state": "started"})
-            if request.method == "cancel":
+            if request.method in {"cancel", "pause", "resume", "use_current"}:
                 task_id = request.params.get("task_id")
                 if not isinstance(task_id, str):
-                    raise JsonProtocolError("cancel 需要 task_id。")
-                state = self.tasks.cancel(task_id)
+                    raise JsonProtocolError(f"{request.method} 需要 task_id。")
+                state = getattr(self.tasks, request.method)(task_id)
                 return JsonResponse(request_id, True, {"task_id": task_id, "state": state})
             if request.method == "ping":
                 result = JsonServiceAdapter().dispatch(request)
-                result["async_task_protocol"] = "start-cancel-v1"
+                result["async_task_protocol"] = "start-control-v2"
                 return JsonResponse(request_id, True, result)
             if request.method == "compute_capabilities":
                 return JsonResponse(request_id, True, JsonServiceAdapter().dispatch(request))
-            raise JsonProtocolError("异步主机只接受 start、cancel 和 ping。")
+            raise JsonProtocolError("异步主机只接受 start、cancel、pause、resume、use_current 和 ping。")
         except Exception as exc:
             return JsonResponse(request_id, False, error=str(exc))
 

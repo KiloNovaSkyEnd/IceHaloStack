@@ -9,6 +9,8 @@ public enum IpcTaskState
     Starting,
     Started,
     Running,
+    Paused,
+    FinishingCurrent,
     Cancelling,
     Completed,
     Cancelled,

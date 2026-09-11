@@ -28,7 +28,7 @@ public sealed partial class NodeFlowViewModel : ObservableObject
             new("stretch", "Stretch\n拉伸", 190, 135),
             new("basic", "Base\n基础调色", 190, 235),
             new("usm", "USM\n锐化", 190, 335),
-            new("background", "Background\n背景", 440, 335),
+            new("bgr", "BGR\n背景/曲线", 440, 335),
             new("highpass", "High Pass\n高反差", 440, 235),
             new("emboss", "Emboss\n浮雕", 440, 135),
             new("channel", "Channel\n通道", 440, 35),
@@ -54,12 +54,7 @@ public sealed partial class NodeFlowViewModel : ObservableObject
             IsEnabled = IsEnabled, SaveSequence = SaveSequence, SaveVideo = SaveVideo,
             VideoFormat = VideoFormat, FramesPerSecond = FramesPerSecond,
         };
-        foreach (var property in typeof(ProcessingSettingsViewModel).GetProperties()
-                     .Where(item => item.CanRead && item.CanWrite))
-        {
-            try { property.SetValue(copy.Processing, property.GetValue(Processing)); }
-            catch { }
-        }
+        copy.Processing.CopyFrom(Processing);
         for (var index = 0; index < Math.Min(Nodes.Count, copy.Nodes.Count); index++)
         {
             copy.Nodes[index].X = Nodes[index].X;
@@ -88,7 +83,7 @@ public sealed partial class NodeFlowViewModel : ObservableObject
         {
             ["stack"] = true, ["stretch"] = Processing.EnableStretch,
             ["basic"] = Processing.EnableBasic, ["usm"] = Processing.EnableUsm,
-            ["background"] = Processing.EnableBackground, ["highpass"] = Processing.EnableHighPass,
+            ["bgr"] = Processing.EnableBackground || Processing.EnableCurves, ["highpass"] = Processing.EnableHighPass,
             ["emboss"] = Processing.EnableEmboss, ["channel"] = Processing.EnableChannelMixer,
             ["output"] = true,
         };

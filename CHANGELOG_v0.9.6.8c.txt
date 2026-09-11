@@ -6,4 +6,11 @@ IceHaloStack v0.9.6.8c
 - Adds flow duplication and selectable reference-output groups.
 - Removes the duplicated Classic Python runtime from the default WinUI package.
 - Packages only CUDA components required by mean/maximum stacking while keeping offline GPU self-test support.
+- Adds the native exposure/white-balance keyframe workspace with asynchronous frame analysis, editable anchors, transition rebuilding, cumulative re-smoothing, corrected preview, ROI controls and cancellation.
+- Restores the remaining reachable Classic menu categories for file/project actions, processing-page navigation, preview fitting, theme switching, storage/performance information and About.
+- Keeps all new WinUI work split across page shells, controls, view models and Python service boundaries; no new source file approaches 1,000 lines.
 - Leaves the existing v0.9.6.8b release unchanged.
+- Adds real pause/resume/use-current task controls at the IPC and stacking-service boundary.
+- Adds undo/redo for processing parameters, toggles, and interactive multi-channel curve points.
+- Adds display-only Auto Stretch plus persisted theme, font, and Chinese/English menu preferences.
+- Completes the native EWB preview workspace with playback timeline, original/corrected/split views, virtualized thumbnails, and three-panel raw/smoothed/keyframe-target trends.

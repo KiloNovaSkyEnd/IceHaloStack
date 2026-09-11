@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<UserControl
+    x:Class="IceHaloStack_WinUI.Controls.EwbFrameTable"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:IceHaloStack_WinUI.ViewModels">
+    <Border Padding="7" BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+        <Grid RowSpacing="6">
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+            <TextBlock Text="帧列表 / Frames" Style="{StaticResource SubtitleTextBlockStyle}"/>
+            <ListView Grid.Row="1" ItemsSource="{Binding Frames}" SelectedItem="{Binding SelectedFrame, Mode=TwoWay}"
+                      SelectionMode="Single" IsItemClickEnabled="False">
+                <ListView.ItemsPanel><ItemsPanelTemplate><ItemsStackPanel/></ItemsPanelTemplate></ListView.ItemsPanel>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:EwbFrameItem">
+                        <Grid ColumnSpacing="6" Padding="2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="42"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="66"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind FrameNumber}"/>
+                            <FontIcon Grid.Column="1" Glyph="&#xE840;" Visibility="{x:Bind IsKeyframe, Mode=OneWay}" FontSize="12"/>
+                            <TextBlock Grid.Column="2" Text="{x:Bind FileName}" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="3" Text="{x:Bind ExposureCorrection, Mode=OneWay}" HorizontalAlignment="Right"/>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <StackPanel Grid.Row="2" Spacing="5">
+                <Button Content="添加 / 移除当前关键帧" Command="{Binding ToggleKeyframeCommand}" HorizontalAlignment="Stretch"/>
+                <Grid ColumnSpacing="4">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Button Content="上一帧" Command="{Binding PreviousFrameCommand}" HorizontalAlignment="Stretch"/>
+                    <Button Grid.Column="1" Content="下一帧" Command="{Binding NextFrameCommand}" HorizontalAlignment="Stretch"/>
+                </Grid>
+                <Button Content="关键帧向导（首 / 中 / 尾）" Command="{Binding CreateKeyframeGuideCommand}"/>
+                <Button Content="同步当前调整到全部关键帧" Command="{Binding SynchronizeKeyframesCommand}"/>
+                <Button Content="重置全部关键帧" Command="{Binding ResetKeyframesCommand}"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>
